@@ -9,23 +9,11 @@ keyword: duckdb-vectors
 
 # A frugal building block for semantic search
 
-Most agents we build at work are specialists, not oracles. A support agent that
-answers from a few thousand policy pages. A tool-selection agent that picks the
-right skill out of a few hundred. The honest need is small: semantic search over
-a modest, mostly-static corpus. Yet the reflex answer is large — stand up a
-vector database, run it as a service, wire the agent to it over the network. For
-a few thousand documents, that is a lot of moving parts to own, pay for, and
-keep alive. We wondered if there was a more boring path.
+Most agents we build at work are specialists, not oracles. A support agent that answers from a few thousand policy pages. A tool-selection agent that picks the right skill out of a few hundred. The honest need is small: semantic search over a modest, mostly-static corpus. Yet the reflex answer is large — stand up a vector database, run it as a service, wire the agent to it over the network. For a few thousand documents, that is a lot of moving parts to own, pay for, and keep alive. We wondered if there was a more boring path.
 
 ![Two ways to add semantic search to an agent: the usual external vector database with a network round trip, versus a DuckDB file baked into the agent's own container.](media/duckdb/duckdb-vectors.excalidraw.png)
 
-For the common case — a few thousand documents, read-mostly,
-packaged with one agent — you can skip the external vector database entirely.
-Index the corpus into a single [DuckDB](https://duckdb.org) file, bake that file
-into the agent's container image, and answer semantic queries with a local
-function call in milliseconds. No MCP, no network round-trip. We packaged this pattern as
-[`duckdb-vectors`](https://pypi.org/project/duckdb-vectors/), a small open-source
-Python library.
+For the common case — a few thousand documents, read-mostly, packaged with one agent — you can skip the external vector database entirely. Index the corpus into a single [DuckDB](https://duckdb.org) file, bake that file into the agent's container image, and answer semantic queries with a local function call in milliseconds. No MCP, no network round-trip. We packaged this pattern as [`duckdb-vectors`](https://pypi.org/project/duckdb-vectors/), a small open-source Python package.
 
 ## Do you really need an external vector store?
 
