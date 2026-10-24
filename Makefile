@@ -1,4 +1,4 @@
-.PHONY: help setup posts serve build preview test clean
+.PHONY: help setup posts serve build preview test clean rebase push
 
 DIST := documentation/.vitepress/dist
 CACHE := documentation/.vitepress/cache
@@ -19,6 +19,8 @@ help:
 	@echo "  build    Force a static build into $(DIST)"
 	@echo "  preview  Build if sources changed, then serve the built site"
 	@echo "  test     Build if needed, then validate GFM+Mermaid rendering"
+	@echo "  rebase   Pull and rebase the current branch onto origin/main"
+	@echo "  push     Rebase onto origin/main, then push the current branch"
 	@echo "  clean    Remove the built site, cache, and generated post index"
 
 setup:
@@ -52,6 +54,12 @@ preview: $(DIST)
 # GFM + Mermaid feature. Exits non-zero on any regression.
 test: $(DIST)
 	python3 scripts/test_rendering.py
+
+rebase:
+	git pull --rebase origin main
+
+push: rebase
+	git push
 
 clean:
 	rm -rf $(DIST) $(CACHE) $(POSTS)
