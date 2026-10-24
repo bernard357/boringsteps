@@ -179,8 +179,8 @@
   --content-pad: 24px;
 }
 
-/* Pre-header: a colored uppercase keyword above the page title. */
-.page-keyword {
+/* Pre-header: a colored uppercase eyebrow above the page title. */
+.page-eyebrow {
   display: block;
   margin: 0 0 0.5rem;
   font-size: 0.75rem;

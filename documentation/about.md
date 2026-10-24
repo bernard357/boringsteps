@@ -1,7 +1,7 @@
 ---
 state: production
 layout: doc
-keyword: Boring Steps
+eyebrow: Boring Steps
 ---
 
 # About

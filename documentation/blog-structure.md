@@ -1,7 +1,7 @@
 ---
 state: production
 layout: doc
-keyword: reference
+eyebrow: reference
 ---
 
 # Blog structure

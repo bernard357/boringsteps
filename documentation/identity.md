@@ -1,6 +1,6 @@
 ---
 state: production
-keyword: reference
+eyebrow: reference
 ---
 
 # Visual identity
@@ -21,7 +21,7 @@ serif wordmark: "Boring" in ink, "by design" in the accent.
 ## Palette
 
 Ink/slate neutrals carry the page; a single muted green is the only accent,
-used for links, the filled grid cell, and the pre-header keyword.
+used for links, the filled grid cell, and the pre-header eyebrow.
 
 | Role | Light | Dark |
 | --- | --- | --- |
@@ -52,10 +52,10 @@ One serif family is used for both body and headings, for a quiet, uniform page
 - **Body and headings:** Georgia, Cambria, "Times New Roman", serif
 - **Code:** ui-monospace, "SF Mono", Menlo, monospace
 
-## Pre-header keyword
+## Pre-header eyebrow
 
-Each content page shows a small uppercase keyword in the accent colour above
-its title, read from a frontmatter `keyword` field and defaulting to `article`
+Each content page shows a small uppercase eyebrow in the accent colour above
+its title, read from a frontmatter `eyebrow` field and defaulting to `article`
 when absent. It is rendered by the `doc-before` theme slot and skipped on the
 home redirect and the history index.
 

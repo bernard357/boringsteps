@@ -4,7 +4,7 @@ layout: doc
 aside: false
 outline: false
 sidebar: false
-keyword: Boring Steps
+eyebrow: Boring Steps
 ---
 
 # Past content
