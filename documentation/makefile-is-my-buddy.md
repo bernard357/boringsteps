@@ -1,6 +1,7 @@
 ---
 state: production
 date: 2023-08-05
+eyebrow: Oldies but goldies
 title: Makefile is my buddy
 subtitle: How to automate your Infrastructure-as-Code toolbox?
 tags: [Makefile, Python, uv, ruff, CDK, lambda, Git]
@@ -14,7 +15,7 @@ release: 20230805
 ---
 Over past cloud projects, I have found that `make` can be a very good friend to software engineers. Let me reflect here on some common friction points with Infrastructure-as-Code that can be addressed, in 2023 and beyond, with a simple `Makefile` in your code base.
 
-## **So, you don't know** `make`**, do you?**
+## So, you don't know `make`, do you?
 
 You can check the [Wikipedia page on make](https://en.wikipedia.org/wiki/Make_(software)#Makefile), and get there most details you need to know on the topic. The command `make` reads `Makefile`, checks dependencies and builds executable programs and libraries from source code. Before the introduction of `make`, the Unix build system most commonly consisted of operating system dependent "make" and "install" shell scripts accompanying their program's source code.
 
@@ -22,7 +23,7 @@ Sounds familiar to modern cloud engineers? Indeed, the provisioning and configur
 
 When you build automatically information systems in the cloud, you do not care about compiling `.c` files and linking `.o` objects. But `make` brings interesting capabilities to cloud teams. Here we go with some ideas that have proven useful to us.
 
-## **Multiple software technologies, but overarching shell**
+## Multiple software technologies, but overarching shell
 
 When you are comfortable with a programming language, it is natural to favor related tools as well. Java developers do a lot in Apache Maven and are interested mainly in top-level `pom.xml` file. Javascript developers leverage `package.json` for all commands needed in their projects. Kubernetes aficionados have their way to promote GitOps. Lovers of Visual Studio Code add various plugins and extensions to their personal environments, even if these do not stretch to software pipelines run in the cloud. None of these approaches can, alone, satisfy cloud engineers. We are polyglot because Infrastructure-as-Code is leading to that.
 
@@ -30,7 +31,7 @@ There is a lot to know about when you engineer distributed systems on cloud plat
 
 At the end of the day, whatever their specificities, interactive tools that we use run in a shell. Therefore, we want to automate our working environment from within a shell. And this is exactly how `make` has been created originally. We leverage dependency management in the `Makefile`, but on virtual targets that structure our toolbox. Nowadays, `Makefile` can be the command-line interface (CLI) specific to a given project, that simplifies the life of cloud engineers.
 
-## **Display available commands with** `make`
+## Display available commands with `make`
 
 When you run `make` you mention the target that you are intentionally looking for. For example, you could type `make wip-tests` to quickly test only the code that you are currently working on. If you do not put a target, then `make` just takes the first target of the `Makefile`.
 
@@ -58,7 +59,7 @@ help:
 
 When a new person joins a project, it is easy to discover the most useful commands in the toolbox. Just clone the git repository and type `make` on a shell prompt. In addition, when the project toolbox changes, it is also easy to reflect that in the `Makefile` and spread it across software engineers.
 
-## **Setup a new project with** `make setup`
+## Setup a new project with `make setup`
 
 How to smooth the experience of a new contributor to your project? Provide a single command that encapsulates the complexity of a full setup: download of multiple files, creation of a virtual environment, etc. Here is an example:
 
@@ -80,7 +81,7 @@ Here we lean on [`uv`](https://docs.astral.sh/uv/), a fast Python package and en
 
 This way of working simplifies the documentation of your project. Instead of writing the list of setup commands in the `readme.md` file, just mention the command `make setup` and you are done. In case of error, the person will look at the `Makefile` and figure out why it is not working for her. For the vast majority of cases where the setup commands work as expected, you will smooth onboarding on your project.
 
-## **Observe your code base with** `make stats`
+## Observe your code base with `make stats`
 
 How many files do you manage in your code base? Is a project more about Terraform, about Python, or a combination of both? Can you estimate the number of lines and related management debt? It is always surprising how teams can have difficulties with simple questions of this kind.
 
@@ -93,11 +94,11 @@ stats:
 
 The idea is that you can run `make stats` at any time, and get in seconds some interesting facts about your code base.
 
-## **If it's working here, it will work in a pipeline as well**
+## If it's working here, it will work in a pipeline as well
 
 Potential differences across team workstations and with the CI/CD run-time can be an important cause of inefficiencies. Let's see if some `make` commands could close gaps here, and be used equally by human beings and by software robots.
 
-## **Perform static code analysis with** `make lint`
+### Perform static code analysis with `make lint`
 
 Recently, one colleague struggled after the addition of [`checkov`](https://www.checkov.io/) to a Terraform project. This change uncovered many issues that had to be addressed swiftly and induced additional workload on the team. Granted, it may be easier to control continuously the quality of a code base. You could implement this in CI/CD, but if you want to shift left, you need a convenient command for your team members.
 
@@ -134,7 +135,7 @@ format:
 
 When you can perform comprehensive static code analysis with one command, `make lint`, then you control the overall quality of your code base and provide feedback to software engineers. As a bonus, you can use this command in your CI/CD pipelines as well.
 
-## **Test your code base with** `make all-tests`
+### Test your code base with `make all-tests`
 
 We recognize that testing a distributed system is a complex topic in itself. This is going far beyond a single blog post. Nevertheless, we often see cloud engineers who rely only on actual deployments for the validation of their commits. They push commits, then wait for environment updates with CI/CD automation, then inspect cloud resources manually. It can take hours to detect a defect with this approach.
 
@@ -156,11 +157,11 @@ wip-tests:
 
 With a rich set of test commands, you allow cloud engineers to select the appropriate feedback for their ongoing work. The command `make wip-tests` is quick because it scopes the limited set of files that you are working on. The command `make unit-tests` ensures that you have not broken code elsewhere. Then `make integration-tests` can ensure non-regression. And finally, `make all-tests` is the one that provides maximum coverage of tests. The command `make all-tests` should also be executed in the CI/CD pipelines, independently of what cloud engineers do on their workstations.
 
-## **Collaborate over git**
+## Collaborate over git
 
 As a text file put in the project repository, the `Makefile` is a first-class citizen in git collaboration. But there is more. You can also package the most important git commands for your developers, and assist a bit on commit, rebase and push commands.
 
-## **Raise the bar with** `make pre-commit`
+### Raise the bar with `make pre-commit`
 
 [Git hooks](https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks) are a built-in feature of Git that allows developers to automate tasks and enforce policies throughout your workflow. You can leverage this capability by executing specific code on each commit, and prevent inadvertent pollution of the remote server.
 
@@ -186,7 +187,7 @@ extend-select = ["S"]
 
 You can change the `Makefile` over time to ensure a quick process, that does not break the experience of cloud engineers.
 
-## **Synchronize your code base with** `make rebase`
+### Synchronize your code base with `make rebase`
 
 In the context of cloud projects, it can take days or weeks before a commit goes to the main git branch. During that time, you need to stay as close as possible to the main trunk of code. Otherwise, you are taking the risk of complex conflict resolutions, which can be time-consuming.
 
@@ -199,7 +200,7 @@ rebase:
 
 You are advised to run `make rebase` at least every morning. This ensures that your code is compatible with the project state on the previous day. If the command breaks for some reason, you identify quickly where and why.
 
-## **Fix conflicts on your branch with** `make push`
+### Fix conflicts on your branch with `make push`
 
 When you ask a young software engineer to work on a specific git branch, he or she may push commits for days and weeks, without any problem. When you ask, they may report that everything is going fine. But when this code is merged onto another branch, suddenly, tons of conflicts may appear, and massive efforts can be required to recover.
 
@@ -212,7 +213,7 @@ push: rebase
 
 As a software engineer, the usage of `make push` instead of `git push` is not a big deal. But this small evolution can prevent change conflicts before they become massive issues. Again, we give developers a mean to spot discrepancies as early as possible and to fix them along the way.
 
-## **Keep it simple, right?**
+## Keep it simple, right?
 
 Because `make` is a smart wrap of a regular shell, you can add a lot of stuff in a single `Makefile`. This is tempting, but please refrain. If you test the presence of some environment variable before running a command, then this test should probably move to the command itself, right? Also, while it is feasible to have multiple `Makefile` spread in your project, I prefer to have one single top-level `Makefile` aside the `README.md`. With one `Makefile`, I can rule most useful commands of projects I am working on.
 
