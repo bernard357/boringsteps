@@ -4,23 +4,24 @@ layout: doc
 aside: false
 outline: false
 sidebar: false
+excerpt: A blog and book about building simple, durable systems on purpose.
 ---
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { onMounted } from 'vue'
 import { useRouter, withBase } from 'vitepress'
+// Imported at build time so the post list is server-rendered into the static
+// HTML. Non-JS crawlers and agents read the full list below; JS readers are
+// redirected to the latest post on mount.
+import posts from './public/posts.json'
+
+const latest = posts[0]
 
 const router = useRouter()
-const latest = ref(null)
 
-onMounted(async () => {
-  const res = await fetch(withBase('/posts.json'))
-  const posts = await res.json()
-  if (posts.length) {
-    latest.value = posts[0]
-    // Home reflects the most recent post: send the reader to its canonical URL.
-    router.go(withBase(posts[0].url))
-  }
+onMounted(() => {
+  // Home reflects the most recent post: send the reader to its canonical URL.
+  if (latest) router.go(withBase(latest.url))
 })
 </script>
 
@@ -29,6 +30,17 @@ onMounted(async () => {
     <a :href="withBase(latest.url)">{{ latest.title }}</a>
   </p>
   <p v-else>
-    Loading the latest post… or browse the <a :href="withBase('/history')">history</a>.
+    No posts yet — browse the <a :href="withBase('/history')">history</a>.
   </p>
+
+  <h1>Boring steps</h1>
+  <p>A blog and book about building simple, durable systems on purpose. Browse the latest posts below, or see the full <a :href="withBase('/history')">history</a>.</p>
+
+  <ul class="home-post-list">
+    <li v-for="post in posts" :key="post.url">
+      <a :href="withBase(post.url)">{{ post.title }}</a>
+      <span class="home-post-date">{{ post.date }}</span>
+      <p class="home-post-excerpt">{{ post.excerpt }}</p>
+    </li>
+  </ul>
 </div>

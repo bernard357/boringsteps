@@ -1,10 +1,53 @@
-import { defineConfig } from 'vitepress'
+import { defineConfig, type HeadConfig } from 'vitepress'
 import { withMermaid } from 'vitepress-plugin-mermaid'
 import footnote from 'markdown-it-footnote'
 import taskLists from 'markdown-it-task-lists'
 import { readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+
+const SITE_URL = 'https://boringsteps.org'
+const SITE_DESCRIPTION =
+  'A blog and book about building simple, durable systems on purpose.'
+
+// documentation/ root, so file reads below resolve against it.
+const DOCS = dirname(dirname(fileURLToPath(import.meta.url)))
+
+// First non-heading, non-empty paragraph of a page body. Mirrors the excerpt
+// fallback in scripts/build_posts.py so the two stay consistent; this hook
+// runs in TypeScript at build time and cannot import that Python logic.
+function firstParagraph(relativePath: string): string {
+  let text: string
+  try {
+    text = readFileSync(join(DOCS, relativePath), 'utf-8')
+  } catch {
+    return ''
+  }
+  const body = text
+    .replace(/^---\n[\s\S]*?\n---\n?/, '') // frontmatter
+    .replace(/<script[\s\S]*?<\/script>/gi, '') // Vue <script setup> blocks
+    .replace(/<style[\s\S]*?<\/style>/gi, '') // style blocks
+    .replace(/<!--[\s\S]*?-->/g, '') // HTML comments
+    .replace(/^```[\s\S]*?^```/gm, '') // fenced code blocks
+  const paragraph: string[] = []
+  for (const line of body.split('\n')) {
+    const stripped = line.trim()
+    if (!stripped) {
+      if (paragraph.length) break
+      continue
+    }
+    if (stripped.startsWith('#') || stripped.startsWith('<')) continue
+    paragraph.push(stripped)
+  }
+  return paragraph.join(' ')
+}
+
+// Absolute clean URL for a page, e.g. "duckdb-vectors.md" -> site/duckdb-vectors,
+// "index.md" -> site/. Matches VitePress cleanUrls output.
+function canonicalUrl(relativePath: string): string {
+  const path = relativePath.replace(/(^|\/)index\.md$/, '$1').replace(/\.md$/, '')
+  return `${SITE_URL}/${path}`.replace(/\/$/, path ? '' : '/')
+}
 
 // Fail-closed state filter. A page is published only when its frontmatter
 // `state` is in MATCHING_STATES (set in CI, e.g. "production"). Pages with no
@@ -51,12 +94,13 @@ export default withMermaid(defineConfig({
     },
   },
   title: 'Boring steps',
-  description: 'A blog and book, served statically.',
+  description: SITE_DESCRIPTION,
   // Served from the custom apex domain boringsteps.org at the root.
   base: '/',
   lang: 'en-US',
   cleanUrls: true,
   lastUpdated: true,
+  sitemap: { hostname: SITE_URL },
   head: [
     ['link', { rel: 'icon', href: '/favicon.ico', sizes: 'any' }],
     ['link', { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32x32.png' }],
@@ -65,15 +109,45 @@ export default withMermaid(defineConfig({
     ['meta', { name: 'theme-color', content: '#1f7a45' }],
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:title', content: 'Boring steps' }],
-    ['meta', { property: 'og:description', content: 'A blog and book about building simple, durable systems on purpose.' }],
-    ['meta', { property: 'og:url', content: 'https://boringsteps.org/' }],
-    ['meta', { property: 'og:image', content: 'https://boringsteps.org/og-image.png' }],
+    ['meta', { property: 'og:description', content: SITE_DESCRIPTION }],
+    ['meta', { property: 'og:url', content: `${SITE_URL}/` }],
+    ['meta', { property: 'og:image', content: `${SITE_URL}/og-image.png` }],
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
     ['meta', { name: 'twitter:title', content: 'Boring steps' }],
-    ['meta', { name: 'twitter:description', content: 'A blog and book about building simple, durable systems on purpose.' }],
-    ['meta', { name: 'twitter:image', content: 'https://boringsteps.org/og-image.png' }],
+    ['meta', { name: 'twitter:description', content: SITE_DESCRIPTION }],
+    ['meta', { name: 'twitter:image', content: `${SITE_URL}/og-image.png` }],
     ['link', { rel: 'alternate', type: 'application/atom+xml', title: 'Boring steps', href: '/atom.xml' }],
   ],
+  // Per-page SEO/GEO metadata. The static head array above carries site-level
+  // defaults; here we push page-specific tags onto frontmatter.head so each
+  // page gets its own description, canonical, and Open Graph/Twitter values.
+  // Non-JS crawlers and answer engines read these from the server-rendered HTML.
+  transformPageData(pageData) {
+    const fm = pageData.frontmatter
+    const isPost = Boolean(fm.date)
+    const title = pageData.title || 'Boring steps'
+    const description =
+      (typeof fm.excerpt === 'string' && fm.excerpt) ||
+      firstParagraph(pageData.relativePath) ||
+      SITE_DESCRIPTION
+    const url = canonicalUrl(pageData.relativePath)
+
+    // Drive the <meta name="description"> VitePress renders from pageData,
+    // instead of appending a second, conflicting description tag to head.
+    pageData.description = description
+
+    const head: HeadConfig[] = [
+      ['link', { rel: 'canonical', href: url }],
+      ['meta', { property: 'og:type', content: isPost ? 'article' : 'website' }],
+      ['meta', { property: 'og:title', content: title }],
+      ['meta', { property: 'og:description', content: description }],
+      ['meta', { property: 'og:url', content: url }],
+      ['meta', { name: 'twitter:title', content: title }],
+      ['meta', { name: 'twitter:description', content: description }],
+    ]
+
+    fm.head = [...(fm.head ?? []), ...head]
+  },
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     logo: { light: '/logo.svg', dark: '/logo-dark.svg', alt: 'Boring steps' },
