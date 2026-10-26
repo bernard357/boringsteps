@@ -58,7 +58,7 @@ for hit in store.query("how does an embedded database work?", top_k=3):
 ```
 
 The default install has enough batteries to power a functional test. A local embedding model and the CLI
-work out of the box, so the first run needs no cloud account and no extra setup. [Give it a try on RAG.](https://github.com/bernard357/duckdb-vectors/blob/main/documentation/setup-rag-procedure.md)
+work out of the box, so the first run needs no cloud account and no extra setup. [Give it a try on RAG](https://bernard357.github.io/duckdb-vectors/setup-rag-procedure), or [browse the full documentation](https://bernard357.github.io/duckdb-vectors/).
 
 ## How it leans on DuckDB
 
@@ -111,7 +111,7 @@ Pull requests that add a documented use case, an embedding backend, or a chunker
 
 ## Further reading
 
-- [duckdb-vectors on PyPI](https://pypi.org/project/duckdb-vectors/) and the [source on GitHub](https://github.com/bernard357/duckdb-vectors)
+- [duckdb-vectors on PyPI](https://pypi.org/project/duckdb-vectors/), the [source on GitHub](https://github.com/bernard357/duckdb-vectors), and the [documentation site](https://bernard357.github.io/duckdb-vectors/)
 - [DuckDB](https://duckdb.org)
 - [DuckDB Vector Similarity Search extension](https://duckdb.org/docs/current/core_extensions/vss.html)
 - [DuckDB Markdown extension](https://duckdb.org/community_extensions/extensions/markdown)
