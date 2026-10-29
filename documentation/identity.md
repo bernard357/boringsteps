@@ -59,6 +59,20 @@ its title, read from a frontmatter `eyebrow` field and defaulting to `article`
 when absent. It is rendered by the `doc-before` theme slot and skipped on the
 home redirect and the history index.
 
+## Machine-readable metadata
+
+Every page carries JSON-LD structured data, injected by the `transformPageData`
+hook in `.vitepress/config.mts`: a site-level `Organization` and `WebSite`
+describing the publisher, plus an `Article` block on posts (pages with a
+frontmatter `date`). The publisher identity — name, URL, logo, and `sameAs`
+links — lives in a single `IDENTITY` constant in that config, so it is set once
+rather than per page.
+
+`public/llms.txt` is a generated artifact, not hand-edited: `scripts/build_posts.py`
+writes it from the same parsed posts as `posts.json`, listing each post with its
+one-line excerpt so AI answer engines get a clean map of the site. It regenerates
+on every `make build`.
+
 ## Logo usage
 
 - `public/logo.svg` — ink stroke, for light backgrounds.

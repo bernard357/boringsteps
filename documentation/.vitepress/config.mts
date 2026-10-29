@@ -7,8 +7,19 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 const SITE_URL = 'https://boringsteps.org'
+const SITE_NAME = 'Boring steps'
 const SITE_DESCRIPTION =
   'A blog and book about building simple, durable systems on purpose.'
+
+// Single source of truth for the publisher identity, reused by the JSON-LD
+// Organization/WebSite/Article blocks. Defined once here so adding a post or a
+// social profile is a one-line change, not a per-page edit.
+const IDENTITY = {
+  name: SITE_NAME,
+  url: `${SITE_URL}/`,
+  logo: `${SITE_URL}/logo.svg`,
+  sameAs: ['https://github.com/bernard357/boringsteps'],
+}
 
 // documentation/ root, so file reads below resolve against it.
 const DOCS = dirname(dirname(fileURLToPath(import.meta.url)))
@@ -145,6 +156,49 @@ export default withMermaid(defineConfig({
       ['meta', { name: 'twitter:title', content: title }],
       ['meta', { name: 'twitter:description', content: description }],
     ]
+
+    // Structured data for search engines and answer engines. Site-level
+    // Organization + WebSite on every page; an Article block on posts (pages
+    // carrying a date). VitePress renders a head script from the tuple
+    // ['script', attrs, innerHTML], so the JSON-LD is stringified into the
+    // third slot.
+    const graph: Record<string, unknown>[] = [
+      {
+        '@type': 'Organization',
+        '@id': `${SITE_URL}/#organization`,
+        name: IDENTITY.name,
+        url: IDENTITY.url,
+        logo: IDENTITY.logo,
+        sameAs: IDENTITY.sameAs,
+      },
+      {
+        '@type': 'WebSite',
+        '@id': `${SITE_URL}/#website`,
+        name: IDENTITY.name,
+        url: IDENTITY.url,
+        description: SITE_DESCRIPTION,
+        publisher: { '@id': `${SITE_URL}/#organization` },
+      },
+    ]
+    if (isPost) {
+      // VitePress parses a YAML `date:` into a JS Date; schema.org wants an
+      // ISO-8601 date string (YYYY-MM-DD), so normalize rather than stringify.
+      const published = new Date(fm.date as string | number | Date)
+        .toISOString()
+        .slice(0, 10)
+      graph.push({
+        '@type': 'Article',
+        headline: title,
+        description,
+        datePublished: published,
+        dateModified: published,
+        author: { '@id': `${SITE_URL}/#organization` },
+        publisher: { '@id': `${SITE_URL}/#organization` },
+        mainEntityOfPage: url,
+      })
+    }
+    const jsonLd = JSON.stringify({ '@context': 'https://schema.org', '@graph': graph })
+    head.push(['script', { type: 'application/ld+json' }, jsonLd])
 
     fm.head = [...(fm.head ?? []), ...head]
   },

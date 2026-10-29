@@ -13,6 +13,8 @@ reading-minutes: 11
 writing-hours: 5
 release: 20230805
 ---
+# Makefile is my buddy
+
 Over past cloud projects, I have found that `make` can be a very good friend to software engineers. Let me reflect here on some common friction points with Infrastructure-as-Code that can be addressed, in 2023 and beyond, with a simple `Makefile` in your code base.
 
 ## So, you don't know `make`, do you?

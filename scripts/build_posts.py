@@ -22,6 +22,7 @@ DOCS = ROOT / "documentation"
 PUBLIC = DOCS / "public"
 OUT = PUBLIC / "posts.json"
 FEED = PUBLIC / "atom.xml"
+LLMS = PUBLIC / "llms.txt"
 CNAME = PUBLIC / "CNAME"
 
 SITE_TITLE = "Boring steps"
@@ -151,14 +152,39 @@ def build_atom(posts: list[dict[str, object]], base: str) -> str:
     return "\n".join(lines) + "\n"
 
 
+def build_llms_txt(posts: list[dict[str, object]], base: str) -> str:
+    """Render a minimal llms.txt: site summary plus a list of posts.
+
+    Generated from the same parsed posts as posts.json so the AI-navigation
+    file never drifts from the published set. Follows the llms.txt convention
+    of an H1 title, a blockquote summary, and a linked section of resources.
+    """
+    lines = [
+        f"# {SITE_TITLE}",
+        "",
+        "> A blog and book about building simple, durable systems on purpose.",
+        "",
+        "## Posts",
+        "",
+    ]
+    for post in posts:
+        url = f"{base}{post['url']}"
+        excerpt = str(post.get("excerpt", "")).strip()
+        suffix = f": {excerpt}" if excerpt else ""
+        lines.append(f"- [{post['title']}]({url}){suffix}")
+    return "\n".join(lines) + "\n"
+
+
 def main() -> None:
     posts = collect_posts()
+    base = site_base()
     PUBLIC.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(posts, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    FEED.write_text(build_atom(posts, site_base()), encoding="utf-8")
+    FEED.write_text(build_atom(posts, base), encoding="utf-8")
+    LLMS.write_text(build_llms_txt(posts, base), encoding="utf-8")
     print(
-        f"wrote {OUT.relative_to(ROOT)} and {FEED.relative_to(ROOT)} "
-        f"with {len(posts)} post(s)"
+        f"wrote {OUT.relative_to(ROOT)}, {FEED.relative_to(ROOT)}, and "
+        f"{LLMS.relative_to(ROOT)} with {len(posts)} post(s)"
     )
 
 

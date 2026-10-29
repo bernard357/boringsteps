@@ -3,4 +3,5 @@ documentation/.vitepress/dist/
 documentation/.vitepress/cache/
 documentation/public/posts.json
 documentation/public/atom.xml
+documentation/public/llms.txt
 .DS_Store
