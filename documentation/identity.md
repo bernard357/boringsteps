@@ -73,6 +73,31 @@ writes it from the same parsed posts as `posts.json`, listing each post with its
 one-line excerpt so AI answer engines get a clean map of the site. It regenerates
 on every `make build`.
 
+## Comments
+
+Posts end with a comment thread, rendered by `PageComments.vue` in the
+`doc-after` theme slot right after the previous/next navigation. It shows only
+on posts (pages with a frontmatter `date`) and is wrapped in `<ClientOnly>`, so
+the server-rendered HTML that crawlers and agents read is unchanged. VitePress
+navigates client-side, so the thread reloads whenever the route changes.
+
+Comment text is rendered as plain text, with line breaks kept and no HTML or
+Markdown interpreted. Readers sign in through the Cognito hosted UI (GitHub,
+LinkedIn, Amazon, Facebook, or Google) to post a comment or a single level of
+reply.
+
+Each comment has a status: `approved` (shown to everyone), `pending` (held for
+review, for example after a keyword match), or `hidden`. Members of the Cognito
+`moderators` group see every status in the thread and get inline Approve, Hide,
+and Set pending buttons. The rules and the back-end are described in
+`comments/README.md`.
+
+The widget reads three build-time variables, `VITE_COMMENTS_API_URL`,
+`VITE_COMMENTS_COGNITO_DOMAIN`, and `VITE_COMMENTS_CLIENT_ID`. They are passed
+through Vite `define` in `.vitepress/config.mts`, so they land in the JavaScript
+bundle and never in the static HTML. When any of them is unset, the component
+renders nothing.
+
 ## Logo usage
 
 - `public/logo.svg` — ink stroke, for light backgrounds.

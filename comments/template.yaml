@@ -1,0 +1,397 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >-
+  Boring Steps comments back-end: Cognito social sign-in (Google, Facebook,
+  Amazon, LinkedIn, GitHub), an HTTP API with a Cognito JWT authorizer, one
+  Python Lambda and a DynamoDB table.
+
+Parameters:
+  SiteOrigin:
+    Type: String
+    Default: https://boringsteps.org
+    Description: Origin of the static site, used for CORS and OAuth redirects.
+  AllowLocalOrigins:
+    Type: String
+    Default: "false"
+    AllowedValues: ["false", "true"]
+    Description: >-
+      When true, also allow http://localhost:5173 and :4173 (make serve and
+      make preview) as CORS origins and OAuth redirects. Keep false in
+      production so a local process cannot complete sign-in against the
+      live user pool.
+  CognitoDomainPrefix:
+    Type: String
+    Default: boringsteps-comments
+    Description: Prefix of the Cognito hosted UI domain.
+  GoogleClientId:
+    Type: String
+    Default: ""
+    Description: Google OAuth client id; empty disables Google sign-in.
+  FacebookClientId:
+    Type: String
+    Default: ""
+    Description: Facebook app id; empty disables Facebook sign-in.
+  AmazonClientId:
+    Type: String
+    Default: ""
+    Description: Login with Amazon client id; empty disables Amazon sign-in.
+  LinkedInClientId:
+    Type: String
+    Default: ""
+    Description: LinkedIn (OpenID Connect) client id; empty disables LinkedIn.
+  GitHubClientId:
+    Type: String
+    Default: ""
+    Description: GitHub OAuth app client id; empty disables GitHub sign-in.
+  GitHubIssuerUrl:
+    Type: String
+    Default: ""
+    Description: >-
+      Issuer URL of the github-cognito-openid-wrapper deployment
+      (https://<api>/<stage>, no trailing slash); empty disables GitHub.
+  SecretsPrefix:
+    Type: String
+    Default: boringsteps/comments
+    Description: >-
+      Secrets Manager prefix; each provider secret is <prefix>/<provider>
+      with a client_secret key.
+  RequireApproval:
+    Type: String
+    Default: "false"
+    AllowedValues: ["false", "true"]
+    Description: When true, new reader comments start as pending.
+  ModerationKeywords:
+    Type: String
+    Default: ""
+    Description: Comma-separated keywords that send a comment to pending.
+  MaxCommentLength:
+    Type: Number
+    Default: 2000
+    MinValue: 1
+    Description: Maximum comment length in characters.
+  WriteLimitCount:
+    Type: Number
+    Default: 5
+    MinValue: 1
+    Description: Comments allowed per user within one write window.
+  WriteLimitWindowSeconds:
+    Type: Number
+    Default: 600
+    MinValue: 1
+    Description: Length of the fixed write window in seconds.
+
+Conditions:
+  AllowLocal: !Equals [!Ref AllowLocalOrigins, "true"]
+  HasGoogle: !Not [!Equals [!Ref GoogleClientId, ""]]
+  HasFacebook: !Not [!Equals [!Ref FacebookClientId, ""]]
+  HasAmazon: !Not [!Equals [!Ref AmazonClientId, ""]]
+  HasLinkedIn: !Not [!Equals [!Ref LinkedInClientId, ""]]
+  HasGitHub: !And
+    - !Not [!Equals [!Ref GitHubClientId, ""]]
+    - !Not [!Equals [!Ref GitHubIssuerUrl, ""]]
+
+Resources:
+  CommentsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      UserPoolName: !Sub ${AWS::StackName}-readers
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Mutable: true
+          Required: false
+        - Name: name
+          AttributeDataType: String
+          Mutable: true
+          Required: false
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Ref CognitoDomainPrefix
+      UserPoolId: !Ref UserPool
+
+  ModeratorsGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: moderators
+      Description: Readers allowed to approve, hide or set comments pending.
+      UserPoolId: !Ref UserPool
+
+  GoogleIdp:
+    Type: AWS::Cognito::UserPoolIdentityProvider
+    Condition: HasGoogle
+    Properties:
+      UserPoolId: !Ref UserPool
+      ProviderName: Google
+      ProviderType: Google
+      ProviderDetails:
+        client_id: !Ref GoogleClientId
+        client_secret: !Sub "{{resolve:secretsmanager:${SecretsPrefix}/google:SecretString:client_secret}}"
+        authorize_scopes: openid email profile
+      AttributeMapping:
+        email: email
+        name: name
+        username: sub
+
+  FacebookIdp:
+    Type: AWS::Cognito::UserPoolIdentityProvider
+    Condition: HasFacebook
+    Properties:
+      UserPoolId: !Ref UserPool
+      ProviderName: Facebook
+      ProviderType: Facebook
+      ProviderDetails:
+        client_id: !Ref FacebookClientId
+        client_secret: !Sub "{{resolve:secretsmanager:${SecretsPrefix}/facebook:SecretString:client_secret}}"
+        authorize_scopes: public_profile,email
+      AttributeMapping:
+        email: email
+        name: name
+        username: id
+
+  AmazonIdp:
+    Type: AWS::Cognito::UserPoolIdentityProvider
+    Condition: HasAmazon
+    Properties:
+      UserPoolId: !Ref UserPool
+      ProviderName: LoginWithAmazon
+      ProviderType: LoginWithAmazon
+      ProviderDetails:
+        client_id: !Ref AmazonClientId
+        client_secret: !Sub "{{resolve:secretsmanager:${SecretsPrefix}/amazon:SecretString:client_secret}}"
+        authorize_scopes: profile
+      AttributeMapping:
+        email: email
+        name: name
+        username: user_id
+
+  # LinkedIn signs ID tokens with issuer https://www.linkedin.com/oauth, so
+  # the endpoints are explicit rather than discovered.
+  LinkedInIdp:
+    Type: AWS::Cognito::UserPoolIdentityProvider
+    Condition: HasLinkedIn
+    Properties:
+      UserPoolId: !Ref UserPool
+      ProviderName: LinkedIn
+      ProviderType: OIDC
+      ProviderDetails:
+        client_id: !Ref LinkedInClientId
+        client_secret: !Sub "{{resolve:secretsmanager:${SecretsPrefix}/linkedin:SecretString:client_secret}}"
+        authorize_scopes: openid profile email
+        attributes_request_method: GET
+        oidc_issuer: https://www.linkedin.com/oauth
+        authorize_url: https://www.linkedin.com/oauth/v2/authorization
+        token_url: https://www.linkedin.com/oauth/v2/accessToken
+        attributes_url: https://api.linkedin.com/v2/userinfo
+        jwks_uri: https://www.linkedin.com/oauth/openid/jwks
+      AttributeMapping:
+        email: email
+        name: name
+        username: sub
+
+  # GitHub is not an OpenID provider; github-cognito-openid-wrapper (v2.0.0)
+  # fronts it, and Cognito cannot discover its endpoints.
+  GitHubIdp:
+    Type: AWS::Cognito::UserPoolIdentityProvider
+    Condition: HasGitHub
+    Properties:
+      UserPoolId: !Ref UserPool
+      ProviderName: GitHub
+      ProviderType: OIDC
+      ProviderDetails:
+        client_id: !Ref GitHubClientId
+        client_secret: !Sub "{{resolve:secretsmanager:${SecretsPrefix}/github:SecretString:client_secret}}"
+        authorize_scopes: openid read:user user:email
+        attributes_request_method: GET
+        oidc_issuer: !Ref GitHubIssuerUrl
+        authorize_url: !Sub ${GitHubIssuerUrl}/authorize
+        token_url: !Sub ${GitHubIssuerUrl}/token
+        attributes_url: !Sub ${GitHubIssuerUrl}/userinfo
+        jwks_uri: !Sub ${GitHubIssuerUrl}/.well-known/jwks.json
+      AttributeMapping:
+        email: email
+        name: name
+        username: sub
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub ${AWS::StackName}-widget
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthScopes:
+        - openid
+        - email
+        - profile
+      ExplicitAuthFlows:
+        - ALLOW_REFRESH_TOKEN_AUTH
+      CallbackURLs:
+        - !Sub ${SiteOrigin}/comments-callback.html
+        - !If [AllowLocal, http://localhost:5173/comments-callback.html, !Ref AWS::NoValue]
+        - !If [AllowLocal, http://localhost:4173/comments-callback.html, !Ref AWS::NoValue]
+      LogoutURLs:
+        - !Sub ${SiteOrigin}/comments-callback.html
+        - !If [AllowLocal, http://localhost:5173/comments-callback.html, !Ref AWS::NoValue]
+        - !If [AllowLocal, http://localhost:4173/comments-callback.html, !Ref AWS::NoValue]
+      SupportedIdentityProviders:
+        - !If [HasGoogle, !Ref GoogleIdp, !Ref AWS::NoValue]
+        - !If [HasFacebook, !Ref FacebookIdp, !Ref AWS::NoValue]
+        - !If [HasAmazon, !Ref AmazonIdp, !Ref AWS::NoValue]
+        - !If [HasLinkedIn, !Ref LinkedInIdp, !Ref AWS::NoValue]
+        - !If [HasGitHub, !Ref GitHubIdp, !Ref AWS::NoValue]
+      PreventUserExistenceErrors: ENABLED
+
+  CommentsApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref SiteOrigin
+          - !If [AllowLocal, http://localhost:5173, !Ref AWS::NoValue]
+          - !If [AllowLocal, http://localhost:4173, !Ref AWS::NoValue]
+        AllowMethods:
+          - GET
+          - POST
+          - PATCH
+          - OPTIONS
+        AllowHeaders:
+          - authorization
+          - content-type
+        MaxAge: 600
+      Auth:
+        Authorizers:
+          CognitoJwt:
+            IdentitySource: $request.header.Authorization
+            JwtConfiguration:
+              issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}
+              audience:
+                - !Ref UserPoolClient
+        DefaultAuthorizer: CognitoJwt
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 20
+        ThrottlingRateLimit: 10
+      RouteSettings:
+        "POST /posts/{slug}/comments":
+          ThrottlingBurstLimit: 5
+          ThrottlingRateLimit: 1
+        "PATCH /posts/{slug}/comments/{id}":
+          ThrottlingBurstLimit: 5
+          ThrottlingRateLimit: 2
+        "GET /posts/{slug}/moderation":
+          ThrottlingBurstLimit: 5
+          ThrottlingRateLimit: 2
+
+  CommentsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-comments
+      RetentionInDays: 30
+
+  CommentsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-comments
+      CodeUri: src/
+      Handler: app.handler
+      Runtime: python3.12
+      Architectures:
+        - arm64
+      MemorySize: 256
+      Timeout: 10
+      LoggingConfig:
+        LogFormat: Text
+        LogGroup: !Ref CommentsLogGroup
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref CommentsTable
+          REQUIRE_APPROVAL: !Ref RequireApproval
+          MODERATION_KEYWORDS: !Ref ModerationKeywords
+          MAX_COMMENT_LENGTH: !Ref MaxCommentLength
+          WRITE_LIMIT_COUNT: !Ref WriteLimitCount
+          WRITE_LIMIT_WINDOW_SECONDS: !Ref WriteLimitWindowSeconds
+      # Least privilege: exactly the operations src/store.py performs
+      # (thread Query, parent/target GetItem, comment PutItem, status and
+      # rate-limit UpdateItem). No Scan, DeleteItem, or batch writes.
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:Query
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+              Resource: !GetAtt CommentsTable.Arn
+      Events:
+        GetComments:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CommentsApi
+            Path: /posts/{slug}/comments
+            Method: GET
+            Auth:
+              Authorizer: NONE
+        PostComment:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CommentsApi
+            Path: /posts/{slug}/comments
+            Method: POST
+        PatchComment:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CommentsApi
+            Path: /posts/{slug}/comments/{id}
+            Method: PATCH
+        GetModeration:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CommentsApi
+            Path: /posts/{slug}/moderation
+            Method: GET
+
+Outputs:
+  ApiUrl:
+    Description: Base URL of the comments HTTP API (VITE_COMMENTS_API_URL).
+    Value: !Sub https://${CommentsApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}
+  CognitoDomain:
+    Description: Cognito hosted UI domain (VITE_COMMENTS_COGNITO_DOMAIN).
+    Value: !Sub ${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com
+  UserPoolId:
+    Description: Cognito user pool id (for moderators group membership).
+    Value: !Ref UserPool
+  UserPoolClientId:
+    Description: Public app client id (VITE_COMMENTS_CLIENT_ID).
+    Value: !Ref UserPoolClient
+  IdpResponseUrl:
+    Description: Redirect URI to register in every social provider OAuth app.
+    Value: !Sub https://${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com/oauth2/idpresponse

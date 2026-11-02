@@ -5,3 +5,10 @@ documentation/public/posts.json
 documentation/public/atom.xml
 documentation/public/llms.txt
 .DS_Store
+comments/.aws-sam/
+comments/.venv/
+comments/samconfig.toml
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.agents/

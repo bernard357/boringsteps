@@ -171,6 +171,145 @@
   text-decoration: underline;
 }
 
+/* Comments below a post. */
+.page-comments {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--vp-c-divider);
+}
+
+.page-comments-title {
+  margin: 0 0 1rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--vp-c-text-1);
+}
+
+.page-comments-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.page-comments-item {
+  padding: 1rem 0;
+}
+
+.page-comments-item + .page-comments-item {
+  border-top: 1px solid var(--vp-c-divider);
+}
+
+.page-comments-reply {
+  margin-left: 1.5rem;
+  padding-left: 1rem;
+  border-left: 2px solid var(--vp-c-brand-soft);
+}
+
+.page-comments-reply + .page-comments-reply {
+  border-top: none;
+}
+
+.page-comments-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  font-size: 0.85rem;
+  color: var(--vp-c-text-2);
+}
+
+.page-comments-author {
+  font-weight: 600;
+  color: var(--vp-c-text-1);
+}
+
+.page-comments-status {
+  font-size: 0.75rem;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  background: var(--vp-c-brand-soft);
+  color: var(--vp-c-brand-1);
+}
+
+.page-comments-text {
+  margin: 0.4rem 0 0;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.page-comments-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.page-comments-form label {
+  font-size: 0.85rem;
+  color: var(--vp-c-text-2);
+}
+
+.page-comments-form textarea {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--vp-c-border);
+  border-radius: var(--vp-border-radius);
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-1);
+  font: inherit;
+  resize: vertical;
+}
+
+.page-comments-form textarea:focus {
+  outline: 2px solid var(--vp-c-brand-1);
+  outline-offset: 1px;
+}
+
+.page-comments-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.page-comments-button {
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--vp-c-border);
+  border-radius: var(--vp-border-radius);
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-brand-1);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.page-comments-button:hover:not(:disabled) {
+  border-color: var(--vp-c-brand-1);
+}
+
+.page-comments-button:focus-visible {
+  outline: 2px solid var(--vp-c-brand-1);
+  outline-offset: 1px;
+}
+
+.page-comments-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.page-comments-signed,
+.page-comments-empty {
+  font-size: 0.85rem;
+  color: var(--vp-c-text-2);
+}
+
+.page-comments-notice {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  color: var(--vp-c-brand-1);
+}
+
 /* --- Chrome: centered nav, content container, footer, pre-header --- */
 
 /* Constrain the top nav to the content column instead of full-bleed. */

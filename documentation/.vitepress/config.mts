@@ -21,6 +21,16 @@ const IDENTITY = {
   sameAs: ['https://github.com/bernard357/boringsteps'],
 }
 
+// Comments widget settings, read from the build environment (outputs of the
+// comments/ SAM stack). Injected through vite.define as __COMMENTS__ so the
+// values land in the JS bundle only: themeConfig is inlined into every HTML
+// page as __VP_SITE_DATA__. Left empty, the widget renders nothing.
+const COMMENTS = {
+  apiUrl: process.env.VITE_COMMENTS_API_URL ?? '',
+  cognitoDomain: process.env.VITE_COMMENTS_COGNITO_DOMAIN ?? '',
+  clientId: process.env.VITE_COMMENTS_CLIENT_ID ?? '',
+}
+
 // documentation/ root, so file reads below resolve against it.
 const DOCS = dirname(dirname(fileURLToPath(import.meta.url)))
 
@@ -95,6 +105,9 @@ export default withMermaid(defineConfig({
   vite: {
     optimizeDeps: {
       include: ['mermaid', 'dayjs', 'fastdom', 'cytoscape'],
+    },
+    define: {
+      __COMMENTS__: JSON.stringify(COMMENTS),
     },
   },
   markdown: {

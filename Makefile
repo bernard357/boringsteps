@@ -1,4 +1,5 @@
-.PHONY: help setup posts serve build preview test clean rebase push
+.PHONY: help setup posts serve build preview test clean rebase push \
+	comments-build comments-deploy comments-test
 
 DIST := documentation/.vitepress/dist
 CACHE := documentation/.vitepress/cache
@@ -22,6 +23,9 @@ help:
 	@echo "  rebase   Pull and rebase the current branch onto origin/main"
 	@echo "  push     Rebase onto origin/main, then push the current branch"
 	@echo "  clean    Remove the built site, cache, and generated post index"
+	@echo "  comments-build   SAM-build the comments back-end (comments/)"
+	@echo "  comments-deploy  Deploy the comments back-end with sam deploy (guided first time)"
+	@echo "  comments-test    Run comments unit tests and ruff (uv)"
 
 setup:
 	npm ci
@@ -63,3 +67,14 @@ push: rebase
 
 clean:
 	rm -rf $(DIST) $(CACHE) $(POSTS)
+
+# Comments back-end (AWS SAM, see comments/README.md).
+comments-build:
+	cd comments && sam build
+
+# First run is guided and writes comments/samconfig.toml (gitignored).
+comments-deploy: comments-build
+	cd comments && sam deploy $(if $(wildcard comments/samconfig.toml),,--guided)
+
+comments-test:
+	cd comments && uv run pytest -q && uv run ruff check . && uv run ruff format --check .

@@ -1,0 +1,1 @@
+# No bundled dependencies: stdlib plus boto3 from the Lambda runtime.

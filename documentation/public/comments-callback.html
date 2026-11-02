@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>Returning to the post - Boring steps</title>
+  </head>
+  <body>
+    <p>Returning to the post…</p>
+    <script>
+      // Fixed OAuth redirect and sign-out target for the comments widget.
+      // Send the browser back to the post it came from, carrying ?code&state
+      // so the widget can finish the sign-in. Only same-site paths are
+      // accepted; anything else falls back to the home page.
+      (function () {
+        var returnTo = '/'
+        try {
+          var saved = sessionStorage.getItem('comments.returnTo')
+          if (saved && saved.charAt(0) === '/' && saved.charAt(1) !== '/' &&
+              saved.charAt(1) !== '\\') {
+            returnTo = saved
+          }
+          sessionStorage.removeItem('comments.returnTo')
+        } catch (e) {
+          // sessionStorage unavailable: keep the fallback.
+        }
+        location.replace(returnTo + location.search)
+      })()
+    </script>
+  </body>
+</html>

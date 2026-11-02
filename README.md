@@ -10,6 +10,8 @@ A blog and book site, authored in Markdown and published as a static
 - `documentation/` — Markdown content and the VitePress project
   - `documentation/.vitepress/config.mts` — site configuration
   - `documentation/public/CNAME` — pins the custom domain across deployments
+- `comments/` — serverless comments back-end (AWS SAM), see
+  [comments/README.md](comments/README.md)
 - `.github/workflows/deploy.yml` — build-and-publish pipeline
 - `Makefile` — the single toolbox (see below)
 
@@ -22,6 +24,9 @@ A blog and book site, authored in Markdown and published as a static
 | `make build` | Build the static site into `documentation/.vitepress/dist` |
 | `make preview` | Serve the built site locally for a production check |
 | `make clean` | Remove the built site and the VitePress cache |
+| `make comments-test` | Run the comments unit tests and ruff (`uv`) |
+| `make comments-build` | SAM-build the comments back-end |
+| `make comments-deploy` | Deploy the comments back-end (`sam deploy`, guided the first time) |
 
 ## Local development
 
