@@ -131,6 +131,36 @@ pages VitePress publishes. With `MATCHING_STATES` set, a draft never becomes
 the newest entry in `posts.json`, so the home-page redirect, the feed, and
 `llms.txt` never point at a page that was not built.
 
+## Style lint
+
+`make style` runs [Vale](https://vale.sh) over every root page, frontmatter
+included, because the `title`, `excerpt`, and `linkedin` text are what readers
+and crawlers see first. The house rules live in `styles/BoringSteps/` and flag
+the AI-writing tells human readers notice:
+
+| Rule | Level | Flags |
+| --- | --- | --- |
+| `EmDash` | warning | every em dash |
+| `StockPhrases` | warning | stock phrases such as `delve into`, `a testament to`, or `unlock the full potential` |
+| `NotJustButAlso` | warning | `not just X but Y` contrasts |
+| `StockFraming` | warning | stock openers and closers such as `in today's world` or `in conclusion` |
+| `RuleOfThree` | suggestion | `X, Y, and Z` lists; an approximation, so it stays a suggestion |
+
+Run it before switching a post to `state: production`, and fix what reads as
+filler. The command never fails on warnings or suggestions: a hit is a
+sentence worth a second look, not proof of anything, and an honest em dash or
+a real three-item list can stay. Code blocks and VitePress snippet imports are
+skipped. To lint one draft only:
+
+```shell
+$ make style STYLE_FILES=documentation/my-draft.md
+```
+
+Scoring posts with machine-learning AI-text detectors is deliberately not part
+of this toolbox yet: the local engines tried so far crashed Python on Apple
+silicon, and published benchmarks show false positives on human text that
+make a raw score misleading.
+
 ## From blog to book
 
 When there is enough material, the same post files become book chapters with

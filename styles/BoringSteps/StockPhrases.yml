@@ -1,0 +1,23 @@
+extends: existence
+message: "'%s' is a stock phrase that reads as AI-written. Say the concrete thing instead."
+level: warning
+ignorecase: true
+tokens:
+  - "delve(?:s|d)? into"
+  - "a rich tapestry"
+  - "tapestry of"
+  - "(?:a|is a) testament to"
+  - "ever-evolving"
+  - "fast-paced (?:world|landscape)"
+  - "game[- ]changer"
+  - "unlock(?:s|ing)? the (?:full )?potential"
+  - "harness(?:es|ing)? the power"
+  - "navigat(?:e|es|ing) the complexit(?:y|ies)"
+  - "in the realm of"
+  - "it(?:'s| is) worth noting"
+  - "it(?:'s| is) important to note"
+  - "a myriad of"
+  - "a plethora of"
+  - "seamless(?:ly)? integrat(?:e|es|ed|ion)"
+  - "robust and scalable"
+  - "cutting-edge"

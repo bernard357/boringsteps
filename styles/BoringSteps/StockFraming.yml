@@ -1,0 +1,18 @@
+extends: existence
+message: "'%s' is a stock opener or closer. Start with the point, end on the last real one."
+level: warning
+ignorecase: true
+tokens:
+  - "in today's (?:digital |fast-paced )?(?:world|landscape|age)"
+  - "in the (?:world|era|age) of"
+  - "imagine a world"
+  - "have you ever wondered"
+  - "let's dive (?:in|into)"
+  - "let's explore"
+  - "buckle up"
+  - "in conclusion"
+  - "in summary"
+  - "to sum (?:it )?up"
+  - "happy coding"
+  - "I hope this helps"
+  - "the bottom line is"

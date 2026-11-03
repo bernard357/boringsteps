@@ -1,0 +1,8 @@
+extends: existence
+message: "'%s' is a three-item list; check that each item earns its place (AI drafts reach for triplets)."
+level: suggestion
+ignorecase: true
+# Approximation only: matches "word, word, and word". Noisy by design, so it
+# stays at suggestion level and never counts as a warning.
+tokens:
+  - '\w+, \w+,? and \w+'

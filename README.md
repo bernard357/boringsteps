@@ -35,6 +35,7 @@ How posts are written, including the use of an AI assistant, is described in
 | `make comments-build` | SAM-build the comments back-end |
 | `make comments-deploy` | Deploy the comments back-end (`sam deploy`, guided the first time) |
 | `make skills-check` | Run the map-reduce skill offline on its fixtures (`uv`) |
+| `make style` | Lint pages for AI-writing tells with Vale; warnings never fail it |
 
 ## Local development
 
@@ -51,6 +52,13 @@ To verify the production build before publishing:
 ```shell
 $ make build
 $ make preview
+```
+
+`make style` needs [Vale](https://vale.sh), installed once with Homebrew:
+
+```shell
+$ brew install vale
+$ make style
 ```
 
 ## Publishing

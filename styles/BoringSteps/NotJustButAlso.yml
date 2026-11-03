@@ -1,0 +1,6 @@
+extends: existence
+message: "'Not just X but Y' is a stock AI contrast. State Y directly."
+level: warning
+ignorecase: true
+tokens:
+  - "not (?:just|only|merely|simply) [^.;:!?]{1,60}?,? but(?: also)?"

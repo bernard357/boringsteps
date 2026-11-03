@@ -1,0 +1,6 @@
+extends: existence
+message: "Em dash: a common AI-writing tell. Prefer a comma, a colon, parentheses, or two sentences."
+level: warning
+nonword: true
+tokens:
+  - "—"

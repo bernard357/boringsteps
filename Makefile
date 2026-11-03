@@ -1,5 +1,5 @@
 .PHONY: help setup posts serve build preview test clean rebase push \
-	comments-build comments-deploy comments-test skills-check
+	comments-build comments-deploy comments-test skills-check style
 
 DIST := documentation/.vitepress/dist
 CACHE := documentation/.vitepress/cache
@@ -28,6 +28,7 @@ help:
 	@echo "  comments-deploy  Deploy the comments back-end with sam deploy (guided first time)"
 	@echo "  comments-test    Run comments unit tests and ruff (uv)"
 	@echo "  skills-check     Run the map-reduce skill offline on its fixtures (uv)"
+	@echo "  style            Lint pages for AI-writing tells with Vale (never fails on warnings)"
 
 setup:
 	npm ci
@@ -85,3 +86,12 @@ comments-test:
 # no AWS credentials, no cost.
 skills-check:
 	uv run skills/map-reduce/scripts/map_reduce.py --dry-run skills/map-reduce/fixtures
+
+# AI-writing tells (em dashes, stock phrases, "not just X but Y", stock
+# openers and closers, rule-of-three lists) in every root page, frontmatter
+# included. index.md is a Vue redirect shim and rendering-test.md is a
+# Markdown fixture, so both are skipped. Override with STYLE_FILES=path.md.
+STYLE_FILES ?= $(filter-out documentation/index.md documentation/rendering-test.md,$(wildcard documentation/*.md))
+
+style:
+	vale --no-wrap $(STYLE_FILES)
