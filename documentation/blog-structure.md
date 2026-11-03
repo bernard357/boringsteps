@@ -105,6 +105,12 @@ Whether a page reaches the production site is governed by its frontmatter
 The filter lives in `.vitepress/config.mts`, which scans page frontmatter and
 adds non-matching pages to `srcExclude` at build time.
 
+`scripts/build_posts.py` applies the same rule, so the posts index
+(`posts.json`), the Atom feed (`atom.xml`), and `llms.txt` list exactly the
+pages VitePress publishes. With `MATCHING_STATES` set, a draft never becomes
+the newest entry in `posts.json`, so the home-page redirect, the feed, and
+`llms.txt` never point at a page that was not built.
+
 ## From blog to book
 
 When there is enough material, the same post files become book chapters with

@@ -12,6 +12,10 @@ A blog and book site, authored in Markdown and published as a static
   - `documentation/public/CNAME` — pins the custom domain across deployments
 - `comments/` — serverless comments back-end (AWS SAM), see
   [comments/README.md](comments/README.md)
+- `skills/` — agent skills shipped with the posts, outside the VitePress
+  source so they are never published as pages
+  - `skills/map-reduce/` — map-reduce over many documents with Amazon Bedrock,
+    see [skills/map-reduce/SKILL.md](skills/map-reduce/SKILL.md)
 - `.github/workflows/deploy.yml` — build-and-publish pipeline
 - `Makefile` — the single toolbox (see below)
 
@@ -27,6 +31,7 @@ A blog and book site, authored in Markdown and published as a static
 | `make comments-test` | Run the comments unit tests and ruff (`uv`) |
 | `make comments-build` | SAM-build the comments back-end |
 | `make comments-deploy` | Deploy the comments back-end (`sam deploy`, guided the first time) |
+| `make skills-check` | Run the map-reduce skill offline on its fixtures (`uv`) |
 
 ## Local development
 

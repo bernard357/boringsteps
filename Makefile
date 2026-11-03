@@ -1,5 +1,5 @@
 .PHONY: help setup posts serve build preview test clean rebase push \
-	comments-build comments-deploy comments-test
+	comments-build comments-deploy comments-test skills-check
 
 DIST := documentation/.vitepress/dist
 CACHE := documentation/.vitepress/cache
@@ -10,7 +10,8 @@ POSTS := documentation/public/posts.json
 SOURCES := $(shell find documentation -type f \
 	\( -name '*.md' -o -name '*.mts' -o -name '*.ts' -o -name '*.css' -o -name '*.vue' \) \
 	-not -path '$(DIST)/*' -not -path '$(CACHE)/*') \
-	package.json scripts/build_posts.py
+	package.json scripts/build_posts.py \
+	$(wildcard skills/*/scripts/*.py)
 
 help:
 	@echo "Targets:"
@@ -26,6 +27,7 @@ help:
 	@echo "  comments-build   SAM-build the comments back-end (comments/)"
 	@echo "  comments-deploy  Deploy the comments back-end with sam deploy (guided first time)"
 	@echo "  comments-test    Run comments unit tests and ruff (uv)"
+	@echo "  skills-check     Run the map-reduce skill offline on its fixtures (uv)"
 
 setup:
 	npm ci
@@ -78,3 +80,8 @@ comments-deploy: comments-build
 
 comments-test:
 	cd comments && uv run pytest -q && uv run ruff check . && uv run ruff format --check .
+
+# Agent skills (skills/, outside the VitePress source). Offline stub backend:
+# no AWS credentials, no cost.
+skills-check:
+	uv run skills/map-reduce/scripts/map_reduce.py --dry-run skills/map-reduce/fixtures

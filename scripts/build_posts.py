@@ -12,8 +12,9 @@ Standard library only — post frontmatter is a small, known subset of YAML
 from __future__ import annotations
 
 import json
+import os
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from xml.sax.saxutils import escape
 
@@ -79,8 +80,27 @@ def first_paragraph(body: str) -> str:
     return " ".join(paragraph)
 
 
+def matching_states() -> list[str]:
+    """Allowed publication states from MATCHING_STATES (comma-separated).
+
+    Mirrors ``stateExcludes()`` in documentation/.vitepress/config.mts so the
+    index, feed, and llms.txt list exactly the pages VitePress publishes. An
+    empty list means the variable is unset or empty: no filtering (local).
+    """
+    raw = os.environ.get("MATCHING_STATES", "")
+    return [state.strip() for state in raw.split(",") if state.strip()]
+
+
+def is_published(meta: dict[str, object], allowed: list[str]) -> bool:
+    """Fail-closed: with an allow-list set, a page needs a listed ``state``."""
+    if not allowed:
+        return True
+    return str(meta.get("state", "")) in allowed
+
+
 def collect_posts() -> list[dict[str, object]]:
     posts: list[dict[str, object]] = []
+    allowed = matching_states()
     for path in sorted(DOCS.glob("*.md")):
         if path.name in EXCLUDE:
             continue
@@ -89,6 +109,8 @@ def collect_posts() -> list[dict[str, object]]:
             continue
         meta = parse_frontmatter(match.group(1))
         if "date" not in meta:
+            continue
+        if not is_published(meta, allowed):
             continue
         slug = path.stem
         posts.append(
@@ -117,17 +139,17 @@ def site_base() -> str:
 def to_rfc3339(date: str) -> str:
     """Turn a YYYY-MM-DD date into an RFC 3339 timestamp for Atom."""
     try:
-        parsed = datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        parsed = datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=UTC)
     except ValueError:
-        parsed = datetime.now(timezone.utc)
+        parsed = datetime.now(UTC)
     return parsed.isoformat()
 
 
 def build_atom(posts: list[dict[str, object]], base: str) -> str:
     """Render a minimal, valid Atom 1.0 feed for the posts (newest-first)."""
-    updated = to_rfc3339(str(posts[0]["date"])) if posts else datetime.now(
-        timezone.utc
-    ).isoformat()
+    updated = (
+        to_rfc3339(str(posts[0]["date"])) if posts else datetime.now(UTC).isoformat()
+    )
     lines = [
         '<?xml version="1.0" encoding="utf-8"?>',
         '<feed xmlns="http://www.w3.org/2005/Atom">',
@@ -179,7 +201,9 @@ def main() -> None:
     posts = collect_posts()
     base = site_base()
     PUBLIC.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(posts, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    OUT.write_text(
+        json.dumps(posts, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
     FEED.write_text(build_atom(posts, base), encoding="utf-8")
     LLMS.write_text(build_llms_txt(posts, base), encoding="utf-8")
     print(
