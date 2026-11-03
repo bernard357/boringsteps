@@ -5,7 +5,7 @@ description: >
   LLM call per document (map), each with a fresh context and a bounded result,
   then one LLM call over the small results (reduce) to produce the final
   output. Runs on Amazon Bedrock with default AWS credentials, configured by
-  MAP_REDUCE_* environment variables, with an offline stub for tests. Use when
+  environment variables, with an offline stub for tests. Use when
   asked to summarize, digest, review, or extract from dozens or hundreds of
   files at once. Triggers: map-reduce, map reduce, summarize a folder, digest
   many documents, too many files for the context, context window too small,
@@ -45,7 +45,7 @@ script at your own, to change what the map extracts and what the reduce writes.
 - A handful of files fits in one context window: one call is cheaper and
   simpler than N + 1.
 - The map results together exceed the reduce model's window: lower
-  `MAP_REDUCE_MAP_MAX_TOKENS`, or split the inputs and reduce in two levels.
+  `MAP_MAX_TOKENS`, or split the inputs and reduce in two levels.
 
 ## How to run it
 
@@ -57,12 +57,12 @@ $ uv run skills/map-reduce/scripts/map_reduce.py --dry-run path/to/folder
 $ uv run skills/map-reduce/scripts/map_reduce.py path/to/folder --output brief.md
 ```
 
-- The target is a folder (filtered by `MAP_REDUCE_GLOB`) or a quoted glob such
+- The target is a folder (filtered by `GLOB`) or a quoted glob such
   as `'notes/2026-*.md'`.
 - The final output goes to stdout, or to `--output PATH`.
 - `--results-dir DIR` also saves each map result as
   `DIR/<relative path>.result.md`, which helps tune the map prompt.
-- `--dry-run` is the same as `MAP_REDUCE_BACKEND=echo`: a deterministic,
+- `--dry-run` is the same as `BACKEND=echo`: a deterministic,
   offline stub replaces the Bedrock call, so no credentials or cost are
   involved.
 - A run summary goes to stderr: inputs mapped, inputs clipped by the character
@@ -79,21 +79,21 @@ the chosen region.
 ## Configuration
 
 Every setting is an environment variable with a default. Set only what you
-need to change, for example `MAP_REDUCE_WORKERS=16 uv run ...`.
+need to change, for example `WORKERS=16 uv run ...`.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `MAP_REDUCE_MAP_MODEL` | `eu.anthropic.claude-haiku-4-5-20251001-v1:0` | Model for the map stage, one call per input (cheap tier) |
-| `MAP_REDUCE_REDUCE_MODEL` | `eu.anthropic.claude-sonnet-4-5-20250929-v1:0` | Model for the single reduce call (stronger tier) |
-| `MAP_REDUCE_REGION` | `eu-west-3` | AWS region of the `bedrock-runtime` client |
-| `MAP_REDUCE_WORKERS` | `8` | Concurrent map calls (thread pool size and client pool size) |
-| `MAP_REDUCE_MAX_INPUT_CHARS` | `24000` | Characters of each input sent to the map call; the rest is clipped |
-| `MAP_REDUCE_MAP_MAX_TOKENS` | `1024` | Token cap on each map result |
-| `MAP_REDUCE_REDUCE_MAX_TOKENS` | `4096` | Token cap on the final output |
-| `MAP_REDUCE_GLOB` | `**/*.md` | File pattern applied when the target is a folder |
-| `MAP_REDUCE_MAP_PROMPT` | `prompts/map.md` in this skill | System prompt for the map stage |
-| `MAP_REDUCE_REDUCE_PROMPT` | `prompts/reduce.md` in this skill | System prompt for the reduce stage |
-| `MAP_REDUCE_BACKEND` | `bedrock` | `bedrock` calls Amazon Bedrock; `echo` is the offline stub |
+| `MAP_MODEL` | `eu.anthropic.claude-haiku-4-5-20251001-v1:0` | Model for the map stage, one call per input (cheap tier) |
+| `REDUCE_MODEL` | `eu.anthropic.claude-sonnet-4-5-20250929-v1:0` | Model for the single reduce call (stronger tier) |
+| `REGION` | `eu-west-3` | AWS region of the `bedrock-runtime` client |
+| `WORKERS` | `8` | Concurrent map calls (thread pool size and client pool size) |
+| `MAX_INPUT_CHARS` | `24000` | Characters of each input sent to the map call; the rest is clipped |
+| `MAP_MAX_TOKENS` | `1024` | Token cap on each map result |
+| `REDUCE_MAX_TOKENS` | `4096` | Token cap on the final output |
+| `GLOB` | `**/*.md` | File pattern applied when the target is a folder |
+| `MAP_PROMPT` | `prompts/map.md` in this skill | System prompt for the map stage |
+| `REDUCE_PROMPT` | `prompts/reduce.md` in this skill | System prompt for the reduce stage |
+| `BACKEND` | `bedrock` | `bedrock` calls Amazon Bedrock; `echo` is the offline stub |
 
 A custom prompt path is resolved from the current working directory.
 
@@ -103,9 +103,9 @@ pricing.
 
 ## Tuning
 
-- Throttling on the map stage: lower `MAP_REDUCE_WORKERS`; the client already
+- Throttling on the map stage: lower `WORKERS`; the client already
   retries with adaptive back-off.
 - Results hitting the token cap: tighten `prompts/map.md` first, then raise
-  `MAP_REDUCE_MAP_MAX_TOKENS`.
-- Inputs clipped: raise `MAP_REDUCE_MAX_INPUT_CHARS`, or split large files
+  `MAP_MAX_TOKENS`.
+- Inputs clipped: raise `MAX_INPUT_CHARS`, or split large files
   before the run.

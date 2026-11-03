@@ -14,7 +14,7 @@ One LLM invocation has one context window. This script works around it:
            output.
 
 Every setting is an environment variable with a default (see SKILL.md). Uses
-default AWS credentials. Set MAP_REDUCE_BACKEND=echo, or pass --dry-run, to
+default AWS credentials. Set BACKEND=echo, or pass --dry-run, to
 replace the Bedrock call with a deterministic offline stub.
 
 Usage:
@@ -49,8 +49,8 @@ Invoke = Callable[[Any, str, str, str, int], tuple[str, dict]]
 
 # region config
 def env(name: str, default: str) -> str:
-    """Read one MAP_REDUCE_* setting, falling back to its default."""
-    return os.environ.get(f"MAP_REDUCE_{name}", "").strip() or default
+    """Read one setting from the environment, falling back to its default."""
+    return os.environ.get(name, "").strip() or default
 
 
 def load_settings() -> dict[str, Any]:
@@ -279,7 +279,7 @@ def main() -> int:
     parser.add_argument("--output", type=Path, help="final result file (else stdout)")
     parser.add_argument("--results-dir", type=Path, help="save per-input results")
     parser.add_argument(
-        "--dry-run", action="store_true", help="offline stub (MAP_REDUCE_BACKEND=echo)"
+        "--dry-run", action="store_true", help="offline stub (BACKEND=echo)"
     )
     args = parser.parse_args()
 
@@ -287,7 +287,7 @@ def main() -> int:
     if args.dry_run:
         settings["backend"] = "echo"
     if settings["backend"] not in ("bedrock", "echo"):
-        parser.error(f"unknown MAP_REDUCE_BACKEND: {settings['backend']}")
+        parser.error(f"unknown BACKEND: {settings['backend']}")
 
     root, files = list_inputs(args.target, settings["glob"])
     if not files:
