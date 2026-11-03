@@ -5,6 +5,9 @@ A blog and book site, authored in Markdown and published as a static
 [GitHub Pages](https://docs.github.com/en/pages) at
 [boringsteps.org](https://boringsteps.org).
 
+How posts are written, including the use of an AI assistant, is described in
+[documentation/blog-structure.md](documentation/blog-structure.md#authoring).
+
 ## Layout
 
 - `documentation/` — Markdown content and the VitePress project

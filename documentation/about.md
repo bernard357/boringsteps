@@ -26,11 +26,15 @@ Inspired by Dan McKinley: [Choose Boring Technology](https://mcfunley.com/choose
 
 And by Amazon's leadership principle: [Frugality](https://amazon.jobs/content/en/our-workplace/leadership-principles). "Accomplish more with less. Constraints breed resourcefulness, self-sufficiency, and invention. There are no extra points for growing headcount, budget size, or fixed expense."
 
+## How these posts are made
+
+I write these posts with an AI assistant, [Kiro](https://kiro.dev). It produces a first draft from material I give it: my notes, the code and issues of the project, and the measurements I ran myself. I then rework the draft, check every figure, command, and claim against its source, and cut what I would not sign. The positions are mine, and so are the mistakes.
+
 ## The author
 
 <a href="https://github.com/bernard357" class="author-photo-link" aria-label="Bernard Paques on GitHub"><img src="/author.jpg" alt="Bernard Paques" class="author-photo" /></a>
 
-Written by **Bernard Paques**. I build and operate systems for a living, and I
+Written by **Bernard Paques**, with an AI assistant for first drafts. I build and operate systems for a living, and I
 keep coming back to the same lesson: the parts that last are the boring ones —
 the conventions, the small scripts, the choices that set clear boundaries.
 This blog is where I write those down.

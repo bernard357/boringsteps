@@ -9,6 +9,26 @@ eyebrow: reference
 How posts are authored, addressed, and indexed on **Boring steps**. Posts
 are independent essays; the only thing they share is the boring principle.
 
+## Authoring
+
+Every post follows the same workflow, stated for readers on the
+[About](/about#how-these-posts-are-made) page:
+
+1. **Material.** The author gathers the evidence: notes, code, issues, and
+   measurements run first-hand.
+2. **Draft.** An AI assistant (Kiro, with the `create-blog-post` skill)
+   produces a first draft from that material only.
+3. **Rework.** The author reworks the draft, adding first-hand context and
+   bringing it to his own voice.
+4. **Verify.** Every figure, command, and claim is checked against its source;
+   anything that cannot be verified is cut.
+5. **Disclose.** The statement on the About page covers every post, so posts
+   carry no per-post marker.
+
+A post submitted to another outlet follows that outlet's rules on AI
+assistance and discloses it explicitly. InfoQ, for example, prohibits articles
+written entirely by AI and asks authors to name every AI tool they used.
+
 ## Flat URLs and deep linking
 
 Each post is a single Markdown file at the **root** of the docs tree:
