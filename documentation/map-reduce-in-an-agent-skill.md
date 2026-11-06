@@ -1,7 +1,7 @@
 ---
 state: production
 title: MapReduce in an agent skill
-date: 2026-11-03
+date: 2026-11-06
 tags: [agentic, skills, map-reduce, frugal]
 excerpt: When a skill must read more documents than one context window holds, give each document its own small LLM call, then reduce the small results with one more call.
 eyebrow: Agentic Pattern
@@ -13,7 +13,7 @@ Sooner or later, you will hit the end of the context window. Ask an agent to rea
 
 The obvious approach is to fragment the corpus under analysis. Do not ask one LLM call to read everything. Give each input item its own call, with a fresh context window and producing a small, bounded result. Then give the small results to one last call that writes the final answer. This is the famous [MapReduce](https://en.wikipedia.org/wiki/MapReduce) pattern, but applied inside an agentic skill. It has been extensively discussed among the agentic community, e.g., this has been named [Fan out and synthesize](https://docs.langchain.com/oss/python/deepagents/dynamic-subagents#fan-out-and-synthesize) in LangChain documentation, or made dependent of [sharding before MapReduce](https://devin.ai/blog/agentic-map-reduce) by Devin.
 
-In this post we want to democratize agentic MapReduce, and show evidence that anyone can use it directly, as a very accessible programming pattern independent from any platform or framework. I’ll build a working implementation in one single Python module of 300 lines, show every moving part, and demonstrate what it can—and cannot—do. The end-to-end implementation has it all: one skill, one python script, and an inference provider. It provides enough details so that you can borrow od adapt the implementation to your own requirements.
+In this post we want to democratize agentic MapReduce. We show evidence that it is a very accessible programming pattern independent from any platform or framework. A working implementation in one single Python module of 300 lines is provide. We show every moving part, and we demonstrate what it can do and what it cannot—do. The end-to-end implementation has it all: one skill, one python script, and an inference provider. It provides enough details so that you can borrow or adapt the implementation to your own requirements.
 
 ## Map, then reduce
 
