@@ -1,5 +1,5 @@
 ---
-state: draft
+state: production
 title: MapReduce in an agent skill
 date: 2026-11-03
 tags: [agentic, skills, map-reduce, frugal]
@@ -11,13 +11,15 @@ eyebrow: Agentic Pattern
 
 Sooner or later, you will hit the end of the context window. Ask an agent to read the meeting notes of a quarter, the tickets of a release, or every page of a policy folder. The agent can do it a bit, then admit this is too much. Even before the hard limit, quality slips as the window fills: details from the middle of the pile get lost, and the answer leans on whatever came first or last. The usual workarounds each give something up. A bigger model costs more per token. Truncation drops information on purpose. Retrieval reads a sample, which is fine for a question and wrong for a digest that must cover everything. Pushing back on both sampling and truncating, we opted for the boring path to find a solution.
 
-The obvious approach is to fragment the corpus under analysis. Do not ask one LLM call to read everything. Give each input item its own call, with a fresh context window and producing a small, bounded result. Then give the small results to one last call that writes the final answer. This is the [MapReduce](https://en.wikipedia.org/wiki/MapReduce) pattern, but applied inside an agentic skill. This posts reflects an implementation that we had for a while: one skill, one python script, and an inference provider. It provides enough details so that you can borrow od adapt the implementation to your own requirements.
+The obvious approach is to fragment the corpus under analysis. Do not ask one LLM call to read everything. Give each input item its own call, with a fresh context window and producing a small, bounded result. Then give the small results to one last call that writes the final answer. This is the famous [MapReduce](https://en.wikipedia.org/wiki/MapReduce) pattern, but applied inside an agentic skill. It has been extensively discussed among the agentic community, e.g., this has been named [Fan out and synthesize](https://docs.langchain.com/oss/python/deepagents/dynamic-subagents#fan-out-and-synthesize) in LangChain documentation, or made dependent of [sharding before MapReduce](https://devin.ai/blog/agentic-map-reduce) by Devin.
+
+In this post we want to democratize agentic MapReduce, and show evidence that anyone can use it directly, as a very accessible programming pattern independent from any platform or framework. I’ll build a working implementation in one single Python module of 300 lines, show every moving part, and demonstrate what it can—and cannot—do. The end-to-end implementation has it all: one skill, one python script, and an inference provider. It provides enough details so that you can borrow od adapt the implementation to your own requirements.
 
 ## Map, then reduce
 
-The map stage turns each input into a short note: at most ten bullet points, a few hundred tokens. Each call sees exactly one document, so its context is never crowded, and a cheap, fast model is enough. The input tokens can be in the thousands, and the output tokens in the hundreds. There are as many invocations as items in the entire corpus. Mapping costs grow linearly with the number of items. We are using commonly [Claude Haiku](https://www.anthropic.com/claude/haiku) here. Other models could be considered for input mapping, e.g., Qwen3 4B / 8B Instruct, Llama 3.1 8B Instruct, Gemma 3 4B / 12B Instruct, GLM / DeepSeek small “Flash” variants. You could event use [Jev](https://en.wikipedia.org/wiki/Jev_(AI_model)) or similar, when the output results essentially of decisions.
+The map stage turns each input into a short output. Typically: at most ten bullet points, a few hundred tokens, one well-structured JSON snippet. Each call sees exactly one document, so its context is never crowded, and a cheap, fast model is enough. The input tokens can be in the thousands, and the output tokens in the hundreds. There are as many invocations as items in the entire corpus. Mapping costs grow linearly with the number of items. We are using commonly [Claude Haiku](https://www.anthropic.com/claude/haiku) here. Other models could be considered for input mapping, e.g., Qwen3 4B / 8B Instruct, Llama 3.1 8B Instruct, Gemma 3 4B / 12B Instruct, GLM / DeepSeek small “Flash” variants. This list is not limitative, and you really have many options to consider. You could even use [Jev](https://en.wikipedia.org/wiki/Jev_(AI_model)) or similar, when the output results essentially of individual decisions made on each input.
 
-The reduce stage reads all the notes at once. Because each note is small, a hundred documents become a reduce input of a few tens of thousands of tokens, which a stronger model handles comfortably. We got good results with [Claude Sonnet](https://www.anthropic.com/claude/sonnet), yet other options could have been considered, e.g., DeepSeek-V4-Pro, Kimi K3, or GLM-5.2.
+The reduce stage reads all the outputs at once. Because each output is small, a hundred documents become a reduce input of a few tens of thousands of tokens, which a stronger model handles comfortably. We got good results with [Claude Sonnet](https://www.anthropic.com/claude/sonnet), yet other options could have been considered, e.g., DeepSeek-V4-Pro, Kimi K3, or GLM-5.2. Again, consider the models that are making sense for your specific environment.
 
 ```mermaid
 flowchart LR
@@ -37,6 +39,16 @@ flowchart LR
 ```
 
 The shape has two useful properties. The mapping work per call stays constant however many documents there are, so quality does not degrade with the size of the pile. And the map calls do not depend on each other, so they can all run at the same time.
+
+## The boundaries of MapReduce in a skill
+
+The script executes either on the same infrastructure as the agent itself, or in a separate sandbox. In both cases, the computing power and the memory devoted to the script are limited. No magic here. The MapReduce pattern does not augment resources, but it allows three breakthroughs:
+
+1. __Decouple the context window from the number of items under analysis__. With 100 items, then the model used for map operation will be invoked 100 times. With 1,000 items, then the model will be invoked 1,000 times. You can taylor the context window of the model to the maximum size of one individual item, instead of the total size of all items. Much simpler to achieve, yet the total number of tokens processed grows linearly with the number of items. Pay attention to that and tune the model used for the map operations.
+
+2. __Parallelize the work to accelerate the analysis__. When processing a batch of items, the script is waiting most of the time for model's responses. This is inherent to operations performed over the network. The pool of threads allow for parallel processing, meaning a more efficient way to use local computing resources. The limitation is the number of threads that can be accepted by the underlying infrastructure.
+
+3. __Adjust final generation to limited context__. With thousands of items, each resulting in hundreds of bytes or less, then the total input windows for final generation is easily limited to some MB. This is rather an easy task for modern models. Still, tune the prompt and the model to your exact needs, with the objective to limit expenses.
 
 ## The orchestrating code
 
@@ -102,7 +114,7 @@ $ uv run skills/map-reduce/scripts/map_reduce.py --dry-run notes/
 
 ## Configuration lives in the skill
 
-An agent reading the skill needs to know which knobs exist without reading the code. So every setting is an environment variable with a default, and the table lives in the skill's own `SKILL.md`:
+An agent reading the skill needs to know which knobs exist without reading the code. So every setting is an environment variable with a default, and the table lives in the skill's own `SKILL.md`. In our specific context, where inferences are submitted to Amazon Bedrock:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -130,14 +142,15 @@ This is a scoped recipe. It fits when the inputs are many independent files, whe
 
 It does not fit every task, and naming the limits is part of the recipe:
 
+- __Big Data.__ If the number of input items grows beyond millions, then consider a dedicated processing platform. Such a workload can not be piggy-packed into a skill. Still, a skill can trigger batch processing via webhooks.
 - __Cross-document reasoning.__ The map stage sees one file at a time. Comparing two contracts clause by clause needs both in the same context, at full detail.
-- __Ordering.__ Map calls run concurrently and see no neighbours. A story told across chapters, or a log where each entry depends on the previous one, loses its thread.
+- __Underlying structure across documents.__ Map calls run concurrently and see no neighborhood. A story told across chapters, or a log where each entry depends on the previous one, loses its thread.
 - __The cost of N calls.__ A hundred documents mean a hundred and one calls. On a cheap map model that is usually a small amount, but it is never free, and for a handful of files that fit in one window, one call is cheaper and simpler.
 - __A reduce that overflows.__ If the notes together exceed the reduce model's window, tighten the map prompt or reduce in two levels.
 
 ## Where it comes from
 
-Originally, we introduced this pattern in support of `update-memory`, a home-grown skill that refreshes a project's shared memory from more than a thousand documents, issues, and notes. There, a swarm of cheap map calls digests each document, and further calls turn the digests into memory pages. That script grew to nearly a thousand lines, tied to its own facets and caching. The skill in this post keeps the proven parts (inline dependencies, one shared client, one call seam, bounded results, environment-variable configuration, a run summary with cost and time) and drops everything specific to our `update-memory`skill. It is generic, and small enough to read in one sitting.
+Originally, we introduced this pattern in support of `update-memory`, a home-grown skill that refreshes a project's shared memory from more than a thousand documents, issues, and notes. There, a swarm of cheap map calls digests each document, and further calls turn the digests into memory pages. That script grew to nearly a thousand lines, tied to its own facets and caching. The skill in this post keeps the proven parts (inline dependencies, one shared client, one call seam, bounded results, environment-variable configuration, a run summary with cost and time) and drops everything specific to our `update-memory` skill. It is generic, and small enough to read in one sitting.
 
 ## What to take away
 
