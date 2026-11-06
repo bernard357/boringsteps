@@ -17,7 +17,7 @@ For the common case (a few thousand documents, read-mostly, packaged with one ag
 
 ## Do you really need an external vector store?
 
-A vector database earns its keep at scale: millions of vectors, high write
+A vector database pays off at scale: millions of vectors, high write
 throughput, many concurrent clients, horizontal sharding. A specialized
 enterprise agent usually has none of those. Its corpus fits in memory, changes
 rarely, and is read far more often than written. Provisioning a networked
@@ -46,6 +46,8 @@ $ duckdb-vectors index ./docs            # build vectors.duckdb from markdown an
 $ duckdb-vectors search "my question"    # test hybrid search from the CLI
 ```
 
+At the end of this step, `vectors.duckdb` exists in the current folder.
+
 Semantic search is then a few lines from the agent's own code:
 
 ```python
@@ -57,14 +59,18 @@ for hit in store.query("how does an embedded database work?", top_k=3):
     print(hit.score, hit.chunk.chunk_id, hit.chunk.text)
 ```
 
-The default install has enough batteries to power a functional test. A local embedding model and the CLI
-work out of the box, so the first run needs no cloud account and no extra setup. [Give it a try on RAG](https://bernard357.github.io/duckdb-vectors/setup-rag-procedure), or [browse the full documentation](https://bernard357.github.io/duckdb-vectors/).
+In other terms, `query` returns the three best chunks, each with its score. The default install is enough for a functional test. A local embedding model and the CLI
+work out of the box, so the first run needs no cloud account and no extra setup. [Try the step-by-step RAG procedure](https://bernard357.github.io/duckdb-vectors/setup-rag-procedure), or [browse the full documentation](https://bernard357.github.io/duckdb-vectors/).
 
 ## How it leans on DuckDB
 
-The library is deliberately thin because DuckDB does the heavy lifting. Each query runs two signals and fuses them with reciprocal rank fusion: a vector distance over embedding arrays for meaning, and an exact-token match for the short literal strings that vectors handle poorly: acronyms, product codes, identifiers [(BM25)](https://duckdb.org/docs/current/core_extensions/full_text_search). The vector signal is a brute-force exact cosine scan (`array_cosine_distance` over native `ARRAY` columns) with no approximate-nearest-neighbour index on the default path. The schema is HNSW-ready and DuckDB's [VSS extension](https://duckdb.org/docs/current/core_extensions/vss) is there if someone opts in, but we measured HNSW at this scale and it was not worth it: on a 1,000-chunk index it bought essentially no speed over brute force while giving up exact recall, so brute force stays the default. The lexical index is built without stemming or stopwords on purpose, so `ESRS` finds `ESRS` while staying language-agnostic; the default embedding model is multilingual, so semantic search already covers paraphrase and synonyms across languages, and stemming would add cost and tie the index to one language without adding relevance for this use case.
+The library is deliberately thin because DuckDB does the heavy lifting. Each query runs two signals and fuses them with reciprocal rank fusion: a vector distance over embedding arrays for meaning, and an exact-token match for the short literal strings that vectors handle poorly: acronyms, product codes, identifiers [(BM25)](https://duckdb.org/docs/current/core_extensions/full_text_search).
 
-That brute-force cosine scan is also where the time goes: profiling the measured ~27 ms retrieval shows it is effectively the whole budget. The default static embedding model maps tokens to fixed vectors with no transformer forward pass, so embedding the query is near-free (~0.3 ms) and the cosine scan dominates almost entirely, with BM25, fusion, and the per-hit fetch a small remainder. At a few thousand chunks that is still tens of milliseconds, and it is the reason HNSW only starts to matter well beyond this niche.
+The vector signal is a brute-force exact cosine scan (`array_cosine_distance` over native `ARRAY` columns) with no approximate-nearest-neighbor index on the default path. The schema is HNSW-ready and DuckDB's [VSS extension](https://duckdb.org/docs/current/core_extensions/vss) is there if someone opts in. We measured HNSW at this scale and it was not worth it: on a 1,000-chunk index it bought essentially no speed over brute force while giving up exact recall. Therefore, brute force stays the default.
+
+The lexical index is built without stemming or stopwords on purpose, so `ESRS` finds `ESRS` while staying language-agnostic. The default embedding model is multilingual, so semantic search already covers paraphrase and synonyms across languages. Stemming would add cost and tie the index to one language without adding relevance for this use case.
+
+That brute-force cosine scan is also where the time goes: profiling the measured ~27 ms retrieval shows it is effectively the whole budget. The default static embedding model maps tokens to fixed vectors with no transformer forward pass, so embedding the query is near-free (~0.3 ms) and the cosine scan dominates almost entirely, with BM25, fusion, and the per-hit fetch a small remainder. At a few thousand chunks that is still tens of milliseconds, and it is the reason HNSW only starts to matter well beyond this niche. In other terms, at this scale the query time is the scan time.
 
 Chunking is dispatched by file type: a [markdown community extension](https://duckdb.org/community_extensions/extensions/markdown) splits markdown into heading-scoped sections, and a PDF chunker reads PDFs a page at a time with a local OCR fallback for scanned pages. A composite chunker routes each file to the right one by MIME type, so a mixed folder indexes in one pass. Embeddings live in native `ARRAY` columns. Choosing one backend on purpose, rather than a lowest-common-denominator abstraction over many databases, is what lets the library stay small and lean on these DuckDB-specific features. 
 
@@ -72,15 +78,21 @@ Chunking is dispatched by file type: a [markdown community extension](https://du
 
 The serving story is the point. The CLI builds `vectors.duckdb` at image-build time; at run time the container opens that file locally and can use it immediately. There is no separate data service to deploy alongside the agent and no network hop on the query path: the index ships inside the same artifact as the code, which is how modern agents are packaged anyway.
 
-When the harness speaks [Model Context Protocol](https://modelcontextprotocol.io) rather than importing Python, `duckdb-vectors mcp` serves the same retrieval as an MCP server over stdio: the client spawns it as a child process in the same container and calls its `search` tool over stdin/stdout. Stdio is a same-container transport, not a network protocol, so the frugal story holds: no port to open, no service to secure. This is the seam that lets MCP clients like [Docker Agent](https://docs.docker.com/ai/), Claude Desktop, Claude Code, and Cursor use the baked index with no glue code, and it is where the salient integrations we have built plug in. Point the server at a folder with `--index` and it builds the index on startup (incrementally, so an unchanged folder is near-instant); launch it with `uvx duckdb-vectors mcp --index ./docs` and an editor like Kilo Code needs neither a manual install nor a separate indexing step.
+When the harness speaks [Model Context Protocol](https://modelcontextprotocol.io) rather than importing Python, `duckdb-vectors mcp` serves the same retrieval as an MCP server over stdio. The client spawns it as a child process in the same container and calls its `search` tool over stdin/stdout. Stdio is a same-container transport, not a network protocol, so the frugal story holds: no port to open, no service to secure. This is the interface that lets MCP clients like [Docker Agent](https://docs.docker.com/ai/), Claude Desktop, Claude Code, and Cursor use the baked index with no glue code. It is also where the main integrations we have built plug in.
 
-The embedding backend is selected by a string, so the same code runs offline in CI and against a cloud provider in production. The default is `fastembed:minishlab/potion-multilingual-128M`, a static [Model2Vec](https://github.com/MinishLab/model2vec) model producing compact 256-dimension multilingual vectors. That choice is deliberate: the smallest vectors keep the baked database as small as possible, and the multilingual coverage means international documentation works out of the box. It is a static embedder, so relevance is lower than a contextual model; when you want more, step up the same multilingual family by dimension: `fastembed:` gives a 256 → 384 → 768 → 1024 ladder (potion, MiniLM, mpnet, e5-large), with English-only `bge` models alongside for English corpora. For anything fastembed does not ship, the `hf:` loader downloads any Hugging Face ONNX model and runs real embedders like Qwen3-Embedding and Google's EmbeddingGemma (`hf:onnx-community/Qwen3-Embedding-0.6B-ONNX`, for instance), so you are not limited to one catalog. As a cloud stepping stone, [Amazon Titan](https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-titan-embed-text.html) is built in for teams already on AWS, and we exercised the whole thing end-to-end as a container, on [Amazon Bedrock AgentCore](https://aws.amazon.com/fr/bedrock/agentcore/), and as an [AWS Lambda](https://docs.aws.amazon.com/lambda/latest/dg/welcome.html) function.
+Point the server at a folder with `--index` and it builds the index on startup. The build is incremental, so an unchanged folder is near-instant. Launch it with `uvx duckdb-vectors mcp --index ./docs`, and an editor like Kilo Code needs neither a manual install nor a separate indexing step.
 
-In the end, the container layers for DuckDB and for your database sit right inside the agent harness itself. `duckdb-vectors` does one thing (retrieval) and leaves generation and orchestration to the framework.
+The embedding backend is selected by a string, so the same code runs offline in CI and against a cloud provider in production. The default is `fastembed:minishlab/potion-multilingual-128M`, a static [Model2Vec](https://github.com/MinishLab/model2vec) model producing compact 256-dimension multilingual vectors. That choice is deliberate: the smallest vectors keep the baked database as small as possible, and the multilingual coverage means international documentation works out of the box.
+
+It is a static embedder, so relevance is lower than a contextual model. When you want more, step up the same multilingual family by dimension: `fastembed:` gives a 256 → 384 → 768 → 1024 ladder (potion, MiniLM, mpnet, e5-large), with English-only `bge` models alongside for English corpora. For anything fastembed does not ship, the `hf:` loader downloads any Hugging Face ONNX model and runs real embedders like Qwen3-Embedding and Google's EmbeddingGemma (`hf:onnx-community/Qwen3-Embedding-0.6B-ONNX`, for instance). You are not limited to one catalog.
+
+As a first step toward the cloud, [Amazon Titan](https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-titan-embed-text.html) is built in for teams already on AWS. We exercised the whole thing end-to-end as a container, on [Amazon Bedrock AgentCore](https://aws.amazon.com/fr/bedrock/agentcore/), and as an [AWS Lambda](https://docs.aws.amazon.com/lambda/latest/dg/welcome.html) function.
+
+In the end, DuckDB and the index file are layers of the same container image as the agent harness. `duckdb-vectors` does one thing (retrieval) and leaves generation and orchestration to the framework.
 
 ## Where it fits, and where it does not
 
-This is a scoped contribution, not a universal store. It fits when the corpus is in the thousands of items, mostly static, and travels with a single agent, and when a local function call beating a network round trip matters more than elastic write throughput. It does __not__ replace a managed vector database for large multi-tenant corpora, high-churn write workloads, or sustained high-concurrency serving. Naming the boundary is part of the pitch: the smaller scope is exactly what buys the simplicity.
+This is a scoped contribution, not a universal store. It fits when the corpus is in the thousands of items, mostly static, and travels with a single agent, and when a local function call beating a network round trip matters more than elastic write throughput. It does __not__ replace a managed vector database for large multi-tenant corpora, high-churn write workloads, or sustained high-concurrency serving. Naming the boundary is part of the recommendation: the smaller scope is exactly what buys the simplicity.
 
 The mismatch is easiest to see side by side:
 
@@ -90,14 +102,14 @@ The mismatch is easiest to see side by side:
 | Write pattern | high-churn, live updates | read-mostly, re-indexed on build |
 | Deployment | a separate service to run | a file baked into the agent image |
 | Query path | MCP or network round trip | local call, in-process execution |
-| Concurrency | scalable back-end service | scale-out by design |
+| Concurrency | scalable back-end service | one copy per agent replica, no shared service |
 | You operate | deploy, secure, monitor, pay | `pip install` and `Dockerfile` |
 
 Pick the left column when you genuinely have that scale. For the right column (the common specialized agent), the left column is machinery you do not need yet.
 
 ## What to take away
 
-For the normal enterprise agent, semantic search does not have to mean operating a vector database. A single DuckDB file, baked into the container, covers the common case with less machinery to own. If that shape matches something you are building, `duckdb-vectors` is open source and [one `pip install` away](https://pypi.org/project/duckdb-vectors/).
+For the normal enterprise agent, semantic search does not have to mean operating a vector database. A single DuckDB file, baked into the container, covers the common case with less machinery to own. If that shape matches something you are building, then try it: `duckdb-vectors` is open source and [one `pip install` away](https://pypi.org/project/duckdb-vectors/).
 
 It is also built to be extended. Swapping the embedding model is usually just a string (a `fastembed:` tier or any `hf:` Hugging Face repo), and both the embedding backends and the chunkers still sit behind small registries, so adding a wholly new backend or chunker is a short, self-contained contribution:
 
