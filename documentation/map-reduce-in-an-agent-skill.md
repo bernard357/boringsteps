@@ -13,7 +13,7 @@ Sooner or later, you will hit the end of the context window. Ask an agent to rea
 
 The obvious approach is to fragment the corpus under analysis. Do not ask one LLM call to read everything. Give each input item its own call, with a fresh context window and producing a small, bounded result. Then give the small results to one last call that writes the final answer. This is the famous [MapReduce](https://en.wikipedia.org/wiki/MapReduce) pattern, but applied inside an agentic skill. It has been extensively discussed among the agentic community, e.g., this has been named [Fan out and synthesize](https://docs.langchain.com/oss/python/deepagents/dynamic-subagents#fan-out-and-synthesize) in LangChain documentation, or made dependent of [sharding before MapReduce](https://devin.ai/blog/agentic-map-reduce) by Devin.
 
-In this post we want to democratize agentic MapReduce. We show evidence that it is a very accessible programming pattern independent from any platform or framework. A working implementation in one single Python module of 300 lines is provide. We show every moving part, and we demonstrate what it can do and what it cannot—do. The end-to-end implementation has it all: one skill, one python script, and an inference provider. It provides enough details so that you can borrow or adapt the implementation to your own requirements.
+In this post we want to democratize agentic MapReduce. We show evidence that it is a very accessible programming pattern independent from any platform or framework. A working implementation in one single Python module of 300 lines is provided. We show every moving part, and we demonstrate what it can do and what it cannot do. The end-to-end implementation has it all: one skill, one python script, and an inference provider. It provides enough details so that you can borrow or adapt the implementation to your own requirements.
 
 ## Map, then reduce
 
@@ -44,9 +44,9 @@ The shape has two useful properties. The mapping work per call stays constant ho
 
 The script executes either on the same infrastructure as the agent itself, or in a separate sandbox. In both cases, the computing power and the memory devoted to the script are limited. No magic here. The MapReduce pattern does not augment resources, but it allows three breakthroughs:
 
-1. __Decouple the context window from the number of items under analysis__. With 100 items, then the model used for map operation will be invoked 100 times. With 1,000 items, then the model will be invoked 1,000 times. You can taylor the context window of the model to the maximum size of one individual item, instead of the total size of all items. Much simpler to achieve, yet the total number of tokens processed grows linearly with the number of items. Pay attention to that and tune the model used for the map operations.
+1. __Decouple the context window from the number of items under analysis__. With 100 items, then the model used for map operation will be invoked 100 times. With 1,000 items, then the model will be invoked 1,000 times. You can tailor the context window of the model to the maximum size of one individual item, instead of the total size of all items. Much simpler to achieve, yet the total number of tokens processed grows linearly with the number of items. Pay attention to that and tune the model used for the map operations.
 
-2. __Parallelize the work to accelerate the analysis__. When processing a batch of items, the script is waiting most of the time for model's responses. This is inherent to operations performed over the network. The pool of threads allow for parallel processing, meaning a more efficient way to use local computing resources. The limitation is the number of threads that can be accepted by the underlying infrastructure.
+2. __Parallelize the work to accelerate the analysis__. When processing a batch of items, the script is waiting most of the time for model's responses. This is inherent to operations performed over the network. The pool of threads allows for parallel processing, meaning a more efficient way to use local computing resources. The limitation is the number of threads that can be accepted by the underlying infrastructure.
 
 3. __Adjust final generation to limited context__. With thousands of items, each resulting in hundreds of bytes or less, then the total input windows for final generation is easily limited to some MB. This is rather an easy task for modern models. Still, tune the prompt and the model to your exact needs, with the objective to limit expenses.
 
@@ -71,7 +71,7 @@ We have one function to support all LLM invocations. Having a single seam is wha
 
 <<< @/../skills/map-reduce/scripts/map_reduce.py#invoke{python}
 
-The map stage submits one call per file to a thread pool. We are commonly using up to 8 mapping threads in parallel, yet you should tune this to your needs. Maybe 32 threads cold work better for you, or 4. The sweet spot can be found with some tests, e.g., 4, 8, 16, 24, 32. Grow the pool progressively, but stop when pool augmentation does not translate to performance gain. Each mapping call clips its input to a character cap and gets its own token cap on the output. A failed call is recorded and does not stop the others. Results are sorted by source at the end, because completion order varies from run to run and the reduce should not.
+The map stage submits one call per file to a thread pool. We are commonly using up to 8 mapping threads in parallel, yet you should tune this to your needs. Maybe 32 threads could work better for you, or 4. The sweet spot can be found with some tests, e.g., 4, 8, 16, 24, 32. Grow the pool progressively, but stop when pool augmentation does not translate to performance gain. Each mapping call clips its input to a character cap and gets its own token cap on the output. A failed call is recorded and does not stop the others. Results are sorted by source at the end, because completion order varies from run to run and the reduce should not.
 
 <<< @/../skills/map-reduce/scripts/map_reduce.py#map{python}
 
@@ -85,11 +85,11 @@ The prompts live next to the script, in `prompts/map.md` and `prompts/reduce.md`
 
 We went selectively on [python threads](https://realpython.com/intro-to-python-threading/) for the orchestration of mappings. Threads are adapted when I/O is the most important performance factor. A remote LLM invocation spends almost all its time waiting on the network, so the Python global interpreter lock is not the bottleneck, and threads are enough. In addition, threads can share memory resources, such as one `bedrock-runtime` client, which is thread-safe and keeps a connection pool sized to the worker count, with adaptive retries for throttling. 
 
-Processes are also available from the standard python library. You may have to prioritize processes over threads if you invoke heavy models locally, and if you observe that the computing power is most limiting factor. For example, you could use processes rather then threads if each map activity parses a large PDF file involving complex text recognition. Check [threading and processing](https://python-academy.org/en/guide/threading-and-multiprocessing) from the python academy to learn more on these models and on related data structures (queues, locks, etc.)
+Processes are also available from the standard python library. You may have to prioritize processes over threads if you invoke heavy models locally, and if you observe that the computing power is the most limiting factor. For example, you could use processes rather than threads if each map activity parses a large PDF file involving complex text recognition. Check [threading and processing](https://python-academy.org/en/guide/threading-and-multiprocessing) from the python academy to learn more on these models and on related data structures (queues, locks, etc.)
 
 ## One command, no environment to manage
 
-The python script declares its own dependencies at the top, using inline script metadata ([PEP 723](https://peps.python.org/pep-0723/)). In our case, we rely on python and on the AWS SDK for remote access to Bedrock. Change these to your specific architecture
+The python script declares its own dependencies at the top, using inline script metadata ([PEP 723](https://peps.python.org/pep-0723/)). In our case, we rely on python and on the AWS SDK for remote access to Bedrock. Change these to your specific architecture.
 
 ```python
 # /// script
@@ -104,7 +104,7 @@ With that header, `uv run` builds a cached, isolated environment on first use an
 $ uv run skills/map-reduce/scripts/map_reduce.py notes/ --output brief.md
 ```
 
-This commands installs the dependencies of the script, then it executes the script. The folder `notes/` contains the corpus of files under analysis. The `--output` parameter explains where to store the result. Note also that the script is ran using ambient AWS credentials, meaning IAM permissions given to the agentic runtime itself. You can adapt this pattern to your inference provider. The only hard dependency is the primitive `uv` itself. But nowadays, this is more and more commonly installed in agentic environments.
+This command installs the dependencies of the script, then it executes the script. The folder `notes/` contains the corpus of files under analysis. The `--output` parameter explains where to store the result. Note also that the script is run using ambient AWS credentials, meaning IAM permissions given to the agentic runtime itself. You can adapt this pattern to your inference provider. The only hard dependency is the primitive `uv` itself. But nowadays, this is more and more commonly installed in agentic environments.
 
 Of course, you can execute the command by yourself, for example to test it on a given set of documents. In our case, there is also a `--dry-run` mode that invokes a deterministic stub instead of Bedrock. This is supporting non-regression tests at no cost.
 
@@ -142,7 +142,7 @@ This is a scoped recipe. It fits when the inputs are many independent files, whe
 
 It does not fit every task, and naming the limits is part of the recipe:
 
-- __Big Data.__ If the number of input items grows beyond millions, then consider a dedicated processing platform. Such a workload can not be piggy-packed into a skill. Still, a skill can trigger batch processing via webhooks.
+- __Big Data.__ If the number of input items grows beyond millions, then consider a dedicated processing platform. Such a workload cannot be piggybacked into a skill. Still, a skill can trigger batch processing via webhooks.
 - __Cross-document reasoning.__ The map stage sees one file at a time. Comparing two contracts clause by clause needs both in the same context, at full detail.
 - __Underlying structure across documents.__ Map calls run concurrently and see no neighborhood. A story told across chapters, or a log where each entry depends on the previous one, loses its thread.
 - __The cost of N calls.__ A hundred documents mean a hundred and one calls. On a cheap map model that is usually a small amount, but it is never free, and for a handful of files that fit in one window, one call is cheaper and simpler.
