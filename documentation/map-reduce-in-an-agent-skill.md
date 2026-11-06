@@ -9,11 +9,13 @@ eyebrow: Agentic Pattern
 
 # MapReduce in an agent skill
 
-Sooner or later, you will hit the end of the context window. Ask an agent to read the meeting notes of a quarter, the tickets of a release, or every page of a policy folder. The agent can do it a bit, then admit this is too much. Even before the hard limit, quality slips as the window fills: details from the middle of the pile get lost, and the answer leans on whatever came first or last. The usual workarounds each give something up. A bigger model costs more per token. Truncation drops information on purpose. Retrieval reads a sample, which is fine for a question and wrong for a digest that must cover everything. Pushing back on both sampling and truncating, we opted for the boring path to find a solution.
+Sooner or later, you will hit the end of the context window. Ask an agent to read the meeting notes of a quarter, the tickets of a release, or every page of a policy folder. The agent can do it a bit, then admit this is too much. The usual workarounds each give something up. Truncation drops information on purpose. Retrieval reads a sample, which is fine for a question and wrong for a digest that must cover everything. Pushing back on both sampling and truncating, we opted for the boring path to find a solution.
+
+![MapReduce Russian dolls](./media/agentic-skill/map-reduce-in-a-skill.png)
 
 The obvious approach is to fragment the corpus under analysis. Do not ask one LLM call to read everything. Give each input item its own call, with a fresh context window and producing a small, bounded result. Then give the small results to one last call that writes the final answer. This is the famous [MapReduce](https://en.wikipedia.org/wiki/MapReduce) pattern, but applied inside an agentic skill. It has been extensively discussed among the agentic community, e.g., this has been named [Fan out and synthesize](https://docs.langchain.com/oss/python/deepagents/dynamic-subagents#fan-out-and-synthesize) in LangChain documentation, or made dependent on [sharding before MapReduce](https://devin.ai/blog/agentic-map-reduce) by Devin.
 
-In this post we want to democratize agentic MapReduce. We show evidence that it is a very accessible programming pattern independent from any platform or framework. A working implementation in one single Python module of 300 lines is provided. We show every moving part, and we demonstrate what it can do and what it cannot do. The end-to-end implementation has it all: one skill, one Python script, and an inference provider. It provides enough details so that you can borrow or adapt the implementation to your own requirements.
+In this post we want to democratize agentic MapReduce. This is a very accessible programming pattern, independent from any platform or framework. A working implementation in one single Python module of 300 lines is provided. We show every moving part, and we demonstrate what it can do and what it cannot do. The end-to-end implementation has it all: one skill, one Python script, and an inference provider. It provides enough details so that you can borrow or adapt the implementation to your own requirements.
 
 ## Map, then reduce
 
@@ -38,7 +40,7 @@ flowchart LR
     R --> O[Final output]
 ```
 
-The shape has two useful properties. The mapping work per call stays constant however many documents there are, so quality does not degrade with the size of the pile. And the map calls do not depend on each other, so they can all run at the same time.
+The shape has two useful properties. The mapping work per call stays constant however many documents there are. And the map calls do not depend on each other, so they can all run at the same time.
 
 ## The boundaries of MapReduce in a skill
 
