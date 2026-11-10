@@ -5,6 +5,8 @@ date: 2026-10-17
 tags: [agentic, duckdb, semantic-search, frugal]
 excerpt: "Give a specialized agent fast, offline semantic search over a few thousand documents by baking a DuckDB file into its container: no external vector database."
 eyebrow: duckdb-vectors
+image: /social/duckdb-vectors.png
+image_alt: A robot and a duck sharing a small house, picturing a DuckDB file baked into an agent container
 ---
 
 # A frugal building block for semantic search
