@@ -75,8 +75,10 @@ reads its size and fails when the file is missing, narrower than 1200 pixels,
 or outside a 1.8 to 2.0 aspect ratio. Without `image`, the page uses the site
 card `/og-image.png`.
 
-Posts also publish `article:published_time` from `date` and one `article:tag`
-per entry of `tags`. After deployment, refresh a stale preview with the
+Posts also publish `<meta name="author">` and `article:author` (set once in
+`AUTHOR` in `.vitepress/config.mts`, without which the LinkedIn Post Inspector
+reports "No author found"), `article:published_time` from `date`, and one
+`article:tag` per entry of `tags`. After deployment, refresh a stale preview with the
 LinkedIn Post Inspector.
 
 Do not set `layout:` on a post — VitePress has no `post` layout, and naming a

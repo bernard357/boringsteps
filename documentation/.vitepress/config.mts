@@ -22,6 +22,14 @@ const IDENTITY = {
   sameAs: ['https://github.com/bernard357/boringsteps'],
 }
 
+// The person behind every post. LinkedIn's Post Inspector reports "No author
+// found" without <meta name="author">; the profile URL feeds article:author
+// and the JSON-LD Person.
+const AUTHOR = {
+  name: 'Bernard Paques',
+  url: 'https://www.linkedin.com/in/webnetworker',
+}
+
 // Comments widget settings, read from the build environment (outputs of the
 // comments/ SAM stack). Injected through vite.define as __COMMENTS__ so the
 // values land in the JS bundle only: themeConfig is inlined into every HTML
@@ -259,7 +267,11 @@ export default withMermaid(defineConfig({
       const published = new Date(fm.date as string | number | Date)
         .toISOString()
         .slice(0, 10)
-      head.push(['meta', { property: 'article:published_time', content: published }])
+      head.push(
+        ['meta', { name: 'author', content: AUTHOR.name }],
+        ['meta', { property: 'article:author', content: AUTHOR.url }],
+        ['meta', { property: 'article:published_time', content: published }],
+      )
       for (const tag of Array.isArray(fm.tags) ? fm.tags : []) {
         head.push(['meta', { property: 'article:tag', content: String(tag) }])
       }
@@ -269,7 +281,7 @@ export default withMermaid(defineConfig({
         description,
         datePublished: published,
         dateModified: published,
-        author: { '@id': `${SITE_URL}/#organization` },
+        author: { '@type': 'Person', name: AUTHOR.name, url: AUTHOR.url },
         publisher: { '@id': `${SITE_URL}/#organization` },
         mainEntityOfPage: url,
       })
