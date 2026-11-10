@@ -56,6 +56,19 @@ CHECKS: list[tuple[str, "re.Pattern[str] | str"]] = [
     # GFM task list — VitePress does NOT render these by default; a passing
     # checkbox proves task-list support is enabled.
     ("task list checkbox", r'type="checkbox"'),
+    # Social preview card read from the page frontmatter `image`.
+    (
+        "og:image absolute",
+        r'<meta property="og:image" content="https://boringsteps\.org/social/rendering-test\.png">',
+    ),
+    ("og:image width", r'<meta property="og:image:width" content="1200">'),
+    ("og:image height", r'<meta property="og:image:height" content="630">'),
+    ("og:image alt", r'<meta property="og:image:alt" content="Rendering test social card">'),
+    (
+        "twitter:image",
+        r'<meta name="twitter:image" content="https://boringsteps\.org/social/rendering-test\.png">',
+    ),
+    ("twitter:card large", r'<meta name="twitter:card" content="summary_large_image">'),
 ]
 
 

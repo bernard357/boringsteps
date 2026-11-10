@@ -62,6 +62,22 @@ excerpt: Why this blog exists and what "boring by design" means.
 | `date` | yes | Publication date (`YYYY-MM-DD`); also the post marker |
 | `tags` | no | List of keywords, shown on the post and index |
 | `excerpt` | no | One-line summary; falls back to the first paragraph |
+| `image` | no | Social preview card, a path under `documentation/public/` or an absolute HTTPS URL; falls back to the site card |
+| `image_alt` | no | Alt text of the social card; falls back to the title |
+
+## Social preview image
+
+Links shared on LinkedIn and other networks show the card named by `image`.
+Store it under `documentation/public/social/`, so its URL stays stable, and
+reference it with a path such as `/social/my-post.png`. Use a PNG or JPG of
+1200×630 pixels (about 1.91:1) and under 5 MB. For a local file, the build
+reads its size and fails when the file is missing, narrower than 1200 pixels,
+or outside a 1.8 to 2.0 aspect ratio. Without `image`, the page uses the site
+card `/og-image.png`.
+
+Posts also publish `article:published_time` from `date` and one `article:tag`
+per entry of `tags`. After deployment, refresh a stale preview with the
+LinkedIn Post Inspector.
 
 Do not set `layout:` on a post — VitePress has no `post` layout, and naming a
 nonexistent layout renders a blank page. The `date:` field alone marks a post.

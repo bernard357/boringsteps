@@ -5,6 +5,7 @@ import taskLists from 'markdown-it-task-lists'
 import { readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import sharp from 'sharp'
 
 const SITE_URL = 'https://boringsteps.org'
 const SITE_NAME = 'Boring steps'
@@ -68,6 +69,43 @@ function firstParagraph(relativePath: string): string {
 function canonicalUrl(relativePath: string): string {
   const path = relativePath.replace(/(^|\/)index\.md$/, '$1').replace(/\.md$/, '')
   return `${SITE_URL}/${path}`.replace(/\/$/, path ? '' : '/')
+}
+
+// Social card limits. LinkedIn wants about 1.91:1 and at least 1200 px wide;
+// narrower images are shrunk to a small thumbnail.
+const CARD_MIN_WIDTH = 1200
+const CARD_MIN_RATIO = 1.8
+const CARD_MAX_RATIO = 2.0
+
+type SocialImage = { url: string; width?: number; height?: number }
+
+// Resolve a frontmatter `image` to an absolute URL, plus its pixel size when
+// it is a local file under public/. Throws, failing the build, when a local
+// card is missing or badly sized, so a cropped or tiny preview is caught here
+// and not on LinkedIn. An absolute URL cannot be read: the author owns it.
+async function socialImage(image: string, page: string): Promise<SocialImage> {
+  if (/^https:\/\//.test(image)) return { url: image }
+  const path = image.startsWith('/') ? image : `/${image}`
+  const file = join(DOCS, 'public', path)
+  let width: number | undefined
+  let height: number | undefined
+  try {
+    const meta = await sharp(file).metadata()
+    width = meta.width
+    height = meta.height
+  } catch {
+    throw new Error(`${page}: image "${image}" not found at ${file}`)
+  }
+  if (!width || !height) throw new Error(`${page}: cannot read size of "${image}"`)
+  const ratio = width / height
+  if (width < CARD_MIN_WIDTH || ratio < CARD_MIN_RATIO || ratio > CARD_MAX_RATIO) {
+    throw new Error(
+      `${page}: image "${image}" is ${width}x${height}; ` +
+        `need at least ${CARD_MIN_WIDTH} px wide and an aspect ratio of ` +
+        `${CARD_MIN_RATIO} to ${CARD_MAX_RATIO} (1200x630 is ideal)`,
+    )
+  }
+  return { url: `${SITE_URL}${path}`, width, height }
 }
 
 // Fail-closed state filter. A page is published only when its frontmatter
@@ -136,6 +174,8 @@ export default withMermaid(defineConfig({
     ['meta', { property: 'og:description', content: SITE_DESCRIPTION }],
     ['meta', { property: 'og:url', content: `${SITE_URL}/` }],
     ['meta', { property: 'og:image', content: `${SITE_URL}/og-image.png` }],
+    ['meta', { property: 'og:image:width', content: '1200' }],
+    ['meta', { property: 'og:image:height', content: '630' }],
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
     ['meta', { name: 'twitter:title', content: 'Boring steps' }],
     ['meta', { name: 'twitter:description', content: SITE_DESCRIPTION }],
@@ -146,7 +186,7 @@ export default withMermaid(defineConfig({
   // defaults; here we push page-specific tags onto frontmatter.head so each
   // page gets its own description, canonical, and Open Graph/Twitter values.
   // Non-JS crawlers and answer engines read these from the server-rendered HTML.
-  transformPageData(pageData) {
+  async transformPageData(pageData) {
     const fm = pageData.frontmatter
     const isPost = Boolean(fm.date)
     const title = pageData.title || 'Boring steps'
@@ -169,6 +209,26 @@ export default withMermaid(defineConfig({
       ['meta', { name: 'twitter:title', content: title }],
       ['meta', { name: 'twitter:description', content: description }],
     ]
+
+    // Page-specific social card. Same property as the site default, so
+    // VitePress lets this one win; without `image`, the default stays.
+    if (typeof fm.image === 'string' && fm.image) {
+      const card = await socialImage(fm.image, pageData.relativePath)
+      const alt = (typeof fm.image_alt === 'string' && fm.image_alt) || title
+      head.push(
+        ['meta', { property: 'og:image', content: card.url }],
+        ['meta', { property: 'og:image:alt', content: alt }],
+        ['meta', { name: 'twitter:image', content: card.url }],
+        ['meta', { name: 'twitter:image:alt', content: alt }],
+        ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+      )
+      if (card.width && card.height) {
+        head.push(
+          ['meta', { property: 'og:image:width', content: String(card.width) }],
+          ['meta', { property: 'og:image:height', content: String(card.height) }],
+        )
+      }
+    }
 
     // Structured data for search engines and answer engines. Site-level
     // Organization + WebSite on every page; an Article block on posts (pages
@@ -199,6 +259,10 @@ export default withMermaid(defineConfig({
       const published = new Date(fm.date as string | number | Date)
         .toISOString()
         .slice(0, 10)
+      head.push(['meta', { property: 'article:published_time', content: published }])
+      for (const tag of Array.isArray(fm.tags) ? fm.tags : []) {
+        head.push(['meta', { property: 'article:tag', content: String(tag) }])
+      }
       graph.push({
         '@type': 'Article',
         headline: title,

@@ -1,6 +1,8 @@
 ---
 state: local
 layout: doc
+image: /social/rendering-test.png
+image_alt: Rendering test social card
 ---
 
 # Rendering test (H1)

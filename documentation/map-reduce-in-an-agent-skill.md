@@ -5,6 +5,8 @@ date: 2026-11-06
 tags: [agentic, skills, map-reduce, frugal]
 excerpt: When a skill must read more documents than one context window holds, give each document its own small LLM call, then reduce the small results with one more call.
 eyebrow: Agentic Pattern
+image: /social/map-reduce-in-an-agent-skill.png
+image_alt: Russian dolls illustrating MapReduce inside an agent skill
 ---
 
 # MapReduce in an agent skill
