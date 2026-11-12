@@ -17,7 +17,7 @@ Sooner or later, you will hit the end of the context window. Ask an agent to rea
 
 The obvious approach is to fragment the corpus under analysis. Do not ask one LLM call to read everything. Give each input item its own call, with a fresh context window and producing a small, bounded result. Then give the small results to one last call that writes the final answer. This is the famous [MapReduce](https://en.wikipedia.org/wiki/MapReduce) pattern, but applied inside an agentic skill. It has been extensively discussed among the agentic community, e.g., this has been named [Fan out and synthesize](https://docs.langchain.com/oss/python/deepagents/dynamic-subagents#fan-out-and-synthesize) in LangChain documentation, or made dependent on [sharding before MapReduce](https://devin.ai/blog/agentic-map-reduce) by Devin.
 
-In this post we want to democratize agentic MapReduce. This is a very accessible programming pattern, independent from any platform or framework. A working implementation in one single Python module of 300 lines is provided. We show every moving part, and we demonstrate what it can do and what it cannot do. The end-to-end implementation has it all: one skill, one Python script, and an inference provider. It provides enough details so that you can borrow or adapt the implementation to your own requirements.
+In this post we want to democratize agentic MapReduce. This is a very accessible programming pattern, independent from any platform or framework. A working implementation in one single Python module of 300 lines is provided. We show every moving part, and we demonstrate what it can do and what it cannot do. The end-to-end implementation has it all: one skill, one Python script, and an inference provider. It provides enough details so that you can borrow or adapt the implementation to your own requirements. Finally, we package the skill once and install it twice: in the IDE with Claude Code, and in an autonomous agent with Strands Agents.
 
 ## Map, then reduce
 
@@ -140,6 +140,134 @@ The script reads its settings in one place, so the table and the code are easy t
 
 <<< @/../skills/map-reduce/scripts/map_reduce.py#config{python}
 
+## Package once, install twice
+
+A skill is a folder. Ours follows the [Agent Skills](https://agentskills.io/specification) format, an open format that both Claude and [Strands Agents](https://strandsagents.com/) read. There is nothing to build and nothing to convert: the package is the folder itself.
+
+```text
+map-reduce/
+├── SKILL.md            # name, description, instructions, configuration table
+├── scripts/
+│   └── map_reduce.py   # the orchestrator, with its dependencies inline
+├── prompts/
+│   ├── map.md
+│   └── reduce.md
+└── fixtures/           # a few notes to test offline
+```
+
+Before shipping the folder anywhere, we check three things:
+
+1. __The description carries the trigger.__ At start-up, an agent reads only the `name` and the `description` of each skill. It loads the rest of `SKILL.md` when the description matches the task at hand. This is why our description lists the plain words people actually use: summarize a folder, digest many documents, too many files for the context.
+2. __Paths are relative to the skill, not to a repository.__ The same folder lands in `.claude/skills/` in one case, and in an application folder in the other. `SKILL.md` names the script relative to its own folder, and the script finds its prompts relative to itself.
+3. __The host provides three things, and only three.__ A shell tool to run the command, `uv` on the path, and AWS credentials allowed to invoke the two models in the region. The skill brings everything else.
+
+The third point rules out one route: uploading the skill as a zip file to the Claude apps. Skills uploaded there run in a hosted sandbox, which usually has neither your AWS credentials nor a route to your Bedrock endpoint. Keep this skill where the credentials are. Below are the two routes we use every day: Claude Code in the IDE, with a human in the loop, and a Strands agent that runs on its own.
+
+### In the IDE, with Claude Code
+
+[Claude Code](https://code.claude.com/docs/en/skills) looks for skills in two places on your machine. A project skill sits in `.claude/skills/<name>/` in the repository, and comes with every clone. A personal skill sits in `~/.claude/skills/<name>/`, and is available in all your projects on this machine. The VS Code and JetBrains extensions run Claude Code, so they read the same folders.
+
+For a team, copy the folder into the repository and commit it:
+
+```shell
+$ git clone --depth 1 https://github.com/bernard357/boringsteps.git /tmp/boringsteps
+$ mkdir -p .claude/skills
+$ cp -R /tmp/boringsteps/skills/map-reduce .claude/skills/
+$ git add .claude/skills/map-reduce
+```
+
+For yourself, keep a clone and link the folder, so that a `git pull` updates the skill:
+
+```shell
+$ git clone https://github.com/bernard357/boringsteps.git ~/src/boringsteps
+$ mkdir -p ~/.claude/skills
+$ ln -s ~/src/boringsteps/skills/map-reduce ~/.claude/skills/map-reduce
+```
+
+There is no restart: Claude Code picks up a new skill in the current session. Type `/` in the prompt box, and `/map-reduce` is in the list. From there, you have two ways to use it. Ask in plain words, e.g., "digest the meeting notes in `notes/` into a brief with open questions", and Claude matches the request to the description. Or name the skill explicitly with `/map-reduce notes/`. Either way, Claude reads the instructions, runs the offline check first, then the real run, and finally reads `brief.md` to discuss it with you. In Claude Code, `${CLAUDE_SKILL_DIR}` in `SKILL.md` expands to the folder of the skill, so the command is right whether the skill is installed per project or per user.
+
+By default, Claude asks before each shell command. In the IDE this is a feature: you see the exact command, the model ids, and the target folder before any token is spent. When the same command comes back every day, allow it once for the project, in `.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "allow": ["Bash(uv run .claude/skills/map-reduce/scripts/map_reduce.py *)"]
+  }
+}
+```
+
+The AWS profile is personal, so it does not go in the repository. Export `AWS_PROFILE` before launching your IDE, or put it in `.claude/settings.local.json`, which is not committed:
+
+```json
+{
+  "env": { "AWS_PROFILE": "bedrock-dev" }
+}
+```
+
+### In an autonomous agent, with Strands
+
+In the IDE, a human reads every command. An autonomous agent has nobody to ask. The skill does not change, but the host has to take over what the human was doing: decide when to run, approve the command, and contain what it can touch.
+
+Strands Agents, the open-source agent SDK from AWS, reads Agent Skills through its `AgentSkills` plugin. The application is one script next to a copy of the skill folder:
+
+```text
+digest-agent/
+├── agent.py
+└── skills/
+    └── map-reduce/     # the same folder, copied as is
+```
+
+The agent script uses the same trick as the skill script: dependencies are declared inline, so `uv run agent.py` is the whole installation.
+
+```python
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["strands-agents>=1.64"]
+# ///
+"""Digest a folder of documents, unattended, with the map-reduce skill."""
+
+import sys
+from pathlib import Path
+
+from strands import Agent, AgentSkills
+from strands.models import BedrockModel
+from strands.vended_tools import read, shell
+
+SKILLS = Path(__file__).resolve().parent / "skills"
+
+agent = Agent(
+    model=BedrockModel(
+        model_id="eu.anthropic.claude-sonnet-4-5-20250929-v1:0",
+        region_name="eu-west-3",
+    ),
+    plugins=[AgentSkills(skills=str(SKILLS))],
+    tools=[read, shell],
+    system_prompt=(
+        "You run unattended: nobody will answer questions. "
+        "Use a skill when one fits the task. "
+        "Write results to files, and end with the path of each file you wrote."
+    ),
+)
+
+if __name__ == "__main__":
+    agent(" ".join(sys.argv[1:]))
+```
+
+```shell
+$ uv run agent.py "Digest the meeting notes in notes/ into a brief saved as brief.md"
+```
+
+The agent goes through three steps. The plugin puts the name and the description of every skill found under `skills/` in the system prompt. When the request matches, the model calls the `skills` tool with `map-reduce`, and receives the body of `SKILL.md`, the location of the skill folder, and the list of its scripts. Then the model calls `shell` with the `uv run` command, and `read` to check the brief before it reports back.
+
+Running unattended changes four things compared to the IDE:
+
+- __Tools.__ `read` and `shell` come from the Strands SDK itself, in `strands.vended_tools`. Older examples import `file_read` and `shell` from the `strands-agents-tools` package. These were removed in version 0.9.0 of that package, and the import now fails.
+- __Containment.__ Without a sandbox, the vended `shell` runs commands directly on the host, with no confirmation. This is fine on a laptop for a test. In production, run the agent in a container, or pass a `sandbox` to the `Agent`. The SDK provides a `DockerSandbox` and an `SshSandbox`. Whatever the choice, the sandbox needs `uv`, a route to Bedrock, and the credentials.
+- __Credentials.__ The agent and the skill share the default AWS credential chain. Give the role of the runtime permission to invoke three models (the orchestrator, plus the map and reduce models of the skill) in one region, and nothing else.
+- __Failures.__ The script returns a non-zero exit code when some inputs fail, and still reduces the others. The `shell` tool hands the exit code and the run summary to the model, which can then report a partial brief instead of a silent success.
+
+The plumbing can be tested without any model call. Strands lets you call a tool directly, so `agent.tool.skills(skill_name="map-reduce")` returns exactly what the model would read, and `agent.tool.shell(command=...)` runs the `--dry-run` command through the same path the model would use. We used both to check this section, with Strands Agents 1.64.
+
 ## Where it fits, and where it does not
 
 This is a scoped recipe. It fits when the inputs are many independent files, when each one can be understood on its own, and when a short note per file carries enough for the final answer: digests of notes, release summaries, reviews of a folder of reports, extraction of decisions or risks across a corpus.
@@ -158,10 +286,13 @@ Originally, we introduced this pattern in support of `update-memory`, a home-gro
 
 ## What to take away
 
-When a skill must read more than one context window can hold, then you do not need a bigger window. Give each document its own small call, keep each result small, and let one last call do the synthesis. The [map-reduce skill](https://github.com/bernard357/boringsteps/tree/main/skills/map-reduce) is in the repository of this blog, with its prompts and a few fixtures to try it offline. Copy the folder into your own skills, adjust the two prompts, and set the variables you need. Thank you in advance for your feedback.
+When a skill must read more than one context window can hold, then you do not need a bigger window. Give each document its own small call, keep each result small, and let one last call do the synthesis. The [map-reduce skill](https://github.com/bernard357/boringsteps/tree/main/skills/map-reduce) is in the repository of this blog, with its prompts and a few fixtures to try it offline. Copy the folder into `.claude/skills/` to use it from your IDE, or next to a Strands agent to run it unattended. Adjust the two prompts, and set the variables you need. Thank you in advance for your feedback.
 
 ## Further reading
 
 - [The map-reduce skill on GitHub](https://github.com/bernard357/boringsteps/tree/main/skills/map-reduce)
+- [Agent Skills specification](https://agentskills.io/specification)
+- [Extend Claude with skills](https://code.claude.com/docs/en/skills), in the Claude Code documentation
+- [Skills in Strands Agents](https://strandsagents.com/docs/user-guide/concepts/plugins/skills/)
 - [PEP 723, inline script metadata](https://peps.python.org/pep-0723/) and [running scripts with uv](https://docs.astral.sh/uv/guides/scripts/)
 - [Amazon Bedrock Converse API](https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference.html)

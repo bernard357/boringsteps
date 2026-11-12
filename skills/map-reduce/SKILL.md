@@ -49,12 +49,15 @@ script at your own, to change what the map extracts and what the reduce writes.
 
 ## How to run it
 
-Run from the repository root. Check the plumbing offline first, then run for
-real:
+The script sits in this skill's folder, the folder that holds this
+`SKILL.md`. Call it by that path from any working directory; below,
+`<skill-dir>` stands for it. In Claude Code, this folder is
+`${CLAUDE_SKILL_DIR}`. In other agents, use the location reported when the
+skill is activated. Check the plumbing offline first, then run for real:
 
 ```shell
-$ uv run skills/map-reduce/scripts/map_reduce.py --dry-run path/to/folder
-$ uv run skills/map-reduce/scripts/map_reduce.py path/to/folder --output brief.md
+$ uv run <skill-dir>/scripts/map_reduce.py --dry-run path/to/folder
+$ uv run <skill-dir>/scripts/map_reduce.py path/to/folder --output brief.md
 ```
 
 - The target is a folder (filtered by `GLOB`) or a quoted glob such
