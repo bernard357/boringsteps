@@ -382,3 +382,29 @@
   padding-bottom: 0.3rem;
   border-bottom: 1px solid var(--vp-c-divider);
 }
+
+/* Align the nav logo with the article H1 (issue #23). The logo sits on the
+   1440px nav layout while the article column is centered on its own widths,
+   so the logo is shifted by the measured gap, per width range. Percentages
+   refer to the nav container (viewport width minus 64px, capped at 1376px),
+   which keeps the result exact when a classic scrollbar is shown.
+   Pages with the outline (has-aside) and without it use different columns.
+   Below 960px the nav is in its narrow form and is left untouched. */
+@media (min-width: 960px) {
+  .Layout:has(.VPDoc:not(.has-sidebar)) .VPNavBar .container > .title {
+    margin-left: calc(50% - 344px);
+  }
+}
+@media (min-width: 1280px) {
+  .Layout:has(.VPDoc.has-aside) .VPNavBar .container > .title {
+    margin-left: calc(50% - 464px);
+  }
+}
+@media (min-width: 1440px) {
+  .Layout:has(.VPDoc.has-aside) .VPNavBar .container > .title {
+    margin-left: 216px;
+  }
+  .Layout:has(.VPDoc:not(.has-aside):not(.has-sidebar)) .VPNavBar .container > .title {
+    margin-left: 328px;
+  }
+}
